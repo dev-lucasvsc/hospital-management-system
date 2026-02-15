@@ -66,7 +66,7 @@ export function Recepcao() {
   };
 
   return (
-    <div style={{ maxWidth: '700px', margin: '40px auto', padding: '40px', backgroundColor: '#fff', color: '#333', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
+    <div style={{ maxWidth: '700px', width: '100%', padding: '40px', backgroundColor: '#fff', color: '#333', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
       <h2 style={{ textAlign: 'center', color: '#0056b3', marginBottom: '30px' }}>🏥 Ficha de Cadastro Hospitalar</h2>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', textAlign: 'left' }}>

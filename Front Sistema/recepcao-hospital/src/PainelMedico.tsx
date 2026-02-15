@@ -46,7 +46,7 @@ export function PainelMedico() {
   };
 
   return (
-    <div style={{ maxWidth: '850px', margin: '50px auto', padding: '20px', color: 'white', textAlign: 'center' }}>
+    <div style={{ maxWidth: '850px', width: '100%', padding: '20px', color: 'white', textAlign: 'center' }}>
       <h1 style={{ marginBottom: '30px', color: '#646cff' }}>👨‍⚕️ Fila de Atendimento por Triagem</h1>
       
       <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #444', backgroundColor: '#1a1a1a' }}>

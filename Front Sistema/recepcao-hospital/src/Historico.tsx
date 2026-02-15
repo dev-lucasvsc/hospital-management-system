@@ -7,7 +7,7 @@ export function Historico() {
   const buscarHistorico = async () => {
     try {
       const res = await axios.get('http://localhost:8080/consultas/historico');
-      setHistorico(res.data); // Corrigido aqui: era setFila e agora é setHistorico
+      setHistorico(res.data);
     } catch (err) {
       console.error("Erro ao buscar histórico");
     }
@@ -29,7 +29,7 @@ export function Historico() {
   useEffect(() => { buscarHistorico(); }, []);
 
   return (
-    <div style={{ maxWidth: '900px', margin: '40px auto', color: 'white' }}>
+    <div style={{ maxWidth: '900px', width: '100%', color: 'white' }}>
       <h1 style={{ textAlign: 'center', color: '#27ae60' }}>📊 Dashboard de Gestão</h1>
       <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
         <div style={cardStyle}><small>Média Espera</small><h2>{metricas.media} min</h2></div>

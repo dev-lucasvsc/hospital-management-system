@@ -13,7 +13,7 @@ function App() {
   if (telaAtiva === 'monitor') return <MonitorTV aoVoltar={() => setTelaAtiva(perfil === 'MEDICO' ? 'medico' : 'recepcao')} />;
 
   return (
-    <div style={{ backgroundColor: '#1a1a1a', minHeight: '100vh', color: 'white' }}>
+    <div style={{ backgroundColor: '#1a1a1a', minHeight: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
       <nav style={{ padding: '15px', background: '#242424', display: 'flex', justifyContent: 'center', gap: '15px', borderBottom: '2px solid #646cff' }}>
         {perfil === 'RECEPCAO' && <button onClick={() => setTelaAtiva('recepcao')} style={getBtnStyle(telaAtiva === 'recepcao')}>🏨 Recepção</button>}
         {perfil === 'MEDICO' && <button onClick={() => setTelaAtiva('medico')} style={getBtnStyle(telaAtiva === 'medico')}>👨‍⚕️ Painel Médico</button>}
@@ -21,7 +21,8 @@ function App() {
         <button onClick={() => setTelaAtiva('monitor')} style={getBtnStyle(false)}>📺 Abrir TV</button>
         <button onClick={() => setPerfil(null)} style={{...getBtnStyle(false), backgroundColor: '#e74c3c'}}>Sair</button>
       </nav>
-      <main style={{ padding: '20px' }}>
+      {/* O <main> agora usa flexbox para centralizar as telas filhas */}
+      <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         {telaAtiva === 'recepcao' && <Recepcao />}
         {telaAtiva === 'medico' && <PainelMedico />}
         {telaAtiva === 'historico' && <Historico />}
@@ -29,7 +30,9 @@ function App() {
     </div>
   );
 }
+
 const getBtnStyle = (ativo: boolean) => ({
   backgroundColor: ativo ? '#646cff' : '#333', color: 'white', padding: '10px 18px', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' as const
 });
+
 export default App;

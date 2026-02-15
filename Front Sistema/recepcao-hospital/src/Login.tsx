@@ -12,7 +12,7 @@ export function Login({ aoLogar }: { aoLogar: (perfil: string) => void }) {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a', width: '100%' }}>
       <div style={{ padding: '40px', backgroundColor: '#fff', borderRadius: '12px', textAlign: 'center', color: '#333' }}>
         <h2 style={{ color: '#0056b3' }}>🏥 Acesso ao Sistema</h2>
         <input placeholder="Usuário" onChange={e => setUser(e.target.value)} style={inputStyle} />
