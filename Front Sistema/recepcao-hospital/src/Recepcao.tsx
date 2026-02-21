@@ -48,6 +48,7 @@ export function Recepcao() {
     }
   }, [formData.cpf]);
 
+  // ✨ FUNÇÃO ATUALIZADA PARA IMPORTAR OS DADOS
   const importarWhatsApp = () => {
     if (preAgendamento) {
       setFormData(prev => ({
@@ -56,7 +57,8 @@ export function Recepcao() {
         dataNascimento: preAgendamento.dataNascimento || prev.dataNascimento,
         telefone: preAgendamento.telefone || prev.telefone
       }));
-      setPreAgendamento(null);
+      setPreAgendamento(null); // Esconde o banner verde
+      alert("✅ Dados do WhatsApp importados com sucesso!"); // Dá feedback ao utilizador
     }
   };
 
@@ -71,7 +73,7 @@ export function Recepcao() {
     } catch (err) {}
   };
 
-  // 🔎 BUSCA PACIENTE CADASTRADO (Botão Procurar corrigido para buscar sem pontos)
+  // 🔎 BUSCA PACIENTE CADASTRADO
   const buscarPaciente = async () => {
     const cpfLimpo = formData.cpf.replace(/\D/g, '');
     if (cpfLimpo.length !== 11) return alert("Digite o CPF completo antes de procurar.");
@@ -106,16 +108,23 @@ export function Recepcao() {
     }, 1500);
   };
 
-  const agendar = async () => {
+ const agendar = async () => {
     const cpfLimpo = formData.cpf.replace(/\D/g, '');
     if (!formData.nome || cpfLimpo.length !== 11) return alert("Preencha Nome e CPF.");
     if (formData.possuiConvenio && statusConvenio !== 'aprovado') return alert("Valide a Carteirinha do Convênio!");
     
     try {
-      // Envia o paciente para o Java com o CPF limpo para padronizar o banco de dados
       const pacientePayload = { ...formData, cpf: cpfLimpo };
       
       const res = await axios.post('http://localhost:8080/consultas/agendar', { paciente: pacientePayload, prioridade: formData.prioridade });
+      
+      // ✨ NOVO CÓDIGO: Avisa o Java para dar baixa no WhatsApp silenciosamente
+      try {
+        await axios.put(`http://localhost:8080/consultas/whatsapp/pre-agendamento/${cpfLimpo}/concluir`);
+      } catch (e) {
+        console.log("Nenhum pré-agendamento pendente para concluir.");
+      }
+
       setConsultaGerada(res.data);
       alert(`Cadastrado com sucesso! Consultório: ${res.data.consultorio}`);
       setFormData({ nome: '', dataNascimento: '', genero: '', generoOutro: '', cpf: '', numeroSus: '', possuiConvenio: false, numeroConvenio: '', prioridade: 'S', cep: '', rua: '', bairro: '', cidade: '', uf: '', telefone: '', nomeMae: '', nomePai: '', peso: '', altura: '' });
