@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export function Recepcao() {
@@ -6,17 +6,17 @@ export function Recepcao() {
     nome: '', dataNascimento: '', genero: '', generoOutro: '', cpf: '', numeroSus: '', 
     possuiConvenio: false, numeroConvenio: '', prioridade: 'S',
     cep: '', rua: '', bairro: '', cidade: '', uf: '',
-    telefone: '', nomeMae: '', nomePai: '', peso: '', altura: '' // NOVOS CAMPOS
+    telefone: '', nomeMae: '', nomePai: '', peso: '', altura: ''
   });
   
   const [consultaGerada, setConsultaGerada] = useState<any>(null);
   const [statusConvenio, setStatusConvenio] = useState<'pendente' | 'validando' | 'aprovado' | 'negado'>('pendente');
+  const [preAgendamento, setPreAgendamento] = useState<any>(null);
 
+  // MÁSCARAS
   const maskCPF = (v: string) => v.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})/, '$1-$2').replace(/(-\d{2})\d+?$/, '$1');
   const maskData = (v: string) => v.replace(/\D/g, '').replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{4})\d+?$/, '$1');
   const maskCEP = (v: string) => v.replace(/\D/g, '').replace(/(\d{5})(\d)/, '$1-$2').slice(0, 9);
-  
-  // ✨ MÁSCARA INTELIGENTE DE TELEFONE (Com 8 ou 9 dígitos)
   const maskTelefone = (v: string) => {
     v = v.replace(/\D/g, '');
     v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
@@ -37,7 +37,30 @@ export function Recepcao() {
     setFormData(prev => ({ ...prev, [name]: name === 'possuiConvenio' ? value === 'true' : val }));
   };
 
-  const buscarCep = async () => { /* ... (igual ao anterior, não vou poluir a visualização aqui, mas deixe a lógica do CEP inteira) */
+  useEffect(() => {
+    const cpfLimpo = formData.cpf.replace(/\D/g, '');
+    if (cpfLimpo.length === 11) {
+      axios.get(`http://localhost:8080/consultas/whatsapp/pre-agendamento/${cpfLimpo}`)
+        .then(res => setPreAgendamento(res.data))
+        .catch(() => setPreAgendamento(null));
+    } else {
+      setPreAgendamento(null);
+    }
+  }, [formData.cpf]);
+
+  const importarWhatsApp = () => {
+    if (preAgendamento) {
+      setFormData(prev => ({
+        ...prev,
+        nome: preAgendamento.nome || prev.nome,
+        dataNascimento: preAgendamento.dataNascimento || prev.dataNascimento,
+        telefone: preAgendamento.telefone || prev.telefone
+      }));
+      setPreAgendamento(null);
+    }
+  };
+
+  const buscarCep = async () => {
     const cepLimpo = formData.cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return alert("Digite um CEP válido com 8 dígitos.");
     try {
@@ -48,10 +71,13 @@ export function Recepcao() {
     } catch (err) {}
   };
 
+  // 🔎 BUSCA PACIENTE CADASTRADO (Botão Procurar corrigido para buscar sem pontos)
   const buscarPaciente = async () => {
-    if (formData.cpf.length < 14) return alert("Digite o CPF completo antes de procurar.");
+    const cpfLimpo = formData.cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) return alert("Digite o CPF completo antes de procurar.");
+    
     try {
-      const res = await axios.get(`http://localhost:8080/consultas/pacientes/${formData.cpf}`);
+      const res = await axios.get(`http://localhost:8080/consultas/pacientes/${cpfLimpo}`);
       if (res.data) {
         setFormData(prev => ({
           ...prev,
@@ -81,11 +107,15 @@ export function Recepcao() {
   };
 
   const agendar = async () => {
-    if (!formData.nome || formData.cpf.length < 14) return alert("Preencha Nome e CPF.");
+    const cpfLimpo = formData.cpf.replace(/\D/g, '');
+    if (!formData.nome || cpfLimpo.length !== 11) return alert("Preencha Nome e CPF.");
     if (formData.possuiConvenio && statusConvenio !== 'aprovado') return alert("Valide a Carteirinha do Convênio!");
     
     try {
-      const res = await axios.post('http://localhost:8080/consultas/agendar', { paciente: formData, prioridade: formData.prioridade });
+      // Envia o paciente para o Java com o CPF limpo para padronizar o banco de dados
+      const pacientePayload = { ...formData, cpf: cpfLimpo };
+      
+      const res = await axios.post('http://localhost:8080/consultas/agendar', { paciente: pacientePayload, prioridade: formData.prioridade });
       setConsultaGerada(res.data);
       alert(`Cadastrado com sucesso! Consultório: ${res.data.consultorio}`);
       setFormData({ nome: '', dataNascimento: '', genero: '', generoOutro: '', cpf: '', numeroSus: '', possuiConvenio: false, numeroConvenio: '', prioridade: 'S', cep: '', rua: '', bairro: '', cidade: '', uf: '', telefone: '', nomeMae: '', nomePai: '', peso: '', altura: '' });
@@ -97,6 +127,14 @@ export function Recepcao() {
     <div style={{ maxWidth: '850px', width: '100%', padding: '40px', backgroundColor: '#fff', color: '#333', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
       <h2 style={{ textAlign: 'center', color: '#0056b3', marginBottom: '30px' }}>🏥 Ficha de Cadastro Hospitalar</h2>
       
+      {/* ✨ BANNER DO WHATSAPP */}
+      {preAgendamento && (
+        <div style={{ backgroundColor: '#d4edda', border: '1px solid #c3e6cb', padding: '15px', borderRadius: '10px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#155724', fontWeight: 'bold' }}>💬 Encontramos um pré-agendamento via WhatsApp!</span>
+          <button onClick={importarWhatsApp} style={{ padding: '8px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Importar Dados</button>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', textAlign: 'left' }}>
         
         {/* BLOCO 1: IDENTIFICAÇÃO BÁSICA */}
@@ -116,7 +154,7 @@ export function Recepcao() {
           </div>
         </div>
 
-        {/* BLOCO 2: DADOS COMPLEMENTARES (A Dica da Recepcionista!) */}
+        {/* BLOCO 2: DADOS COMPLEMENTARES */}
         <div style={{ gridColumn: 'span 2', paddingBottom: '15px', borderBottom: '2px solid #eee' }}>
           <h4 style={{ margin: '0 0 15px 0', color: '#555' }}>2. Contato, Filiação e Dados Físicos</h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
@@ -131,7 +169,6 @@ export function Recepcao() {
         {/* BLOCO 3: ENDEREÇO */}
         <div style={{ gridColumn: 'span 2', backgroundColor: '#f0f7ff', padding: '20px', borderRadius: '10px', border: '1px solid #cce5ff' }}>
           <h4 style={{ margin: '0 0 15px 0', color: '#0056b3' }}>📍 3. Endereço</h4>
-          {/* ... (Todo o seu bloco do ViaCEP antigo fica aqui intacto) ... */}
           <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
             <div style={{ flex: 1 }}><label style={labelStyle}>CEP:</label><input name="cep" value={formData.cep} onChange={handleChange} placeholder="00000-000" style={inputStyle} /></div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}><button onClick={buscarCep} type="button" style={{ padding: '12px 20px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Buscar CEP</button></div>
@@ -190,6 +227,7 @@ export function Recepcao() {
     </div>
   );
 }
+
 const labelStyle = { display: 'block', fontWeight: 'bold' as const, marginBottom: '5px', color: '#555', fontSize: '14px' };
 const inputStyle = { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ddd', boxSizing: 'border-box' as const, fontSize: '15px' };
 const buttonStyle = { width: '100%', marginTop: '30px', padding: '15px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' as const, fontSize: '18px' };
