@@ -13,8 +13,13 @@ public class Funcionario {
     private Long id;
 
     private String nome;
-    private String cargo; // Ex: MEDICO, RECEPCAO
-    private String registroProfissional; // Ex: CRM para médicos
+    private String cargo;
+    private String registroProfissional;
+    private String senha;
+
+    // ✨ NOVOS CAMPOS
+    private String cpf;
+    private String dataNascimento;
 
     public Funcionario() {}
 
@@ -27,4 +32,10 @@ public class Funcionario {
     public void setCargo(String cargo) { this.cargo = cargo; }
     public String getRegistroProfissional() { return registroProfissional; }
     public void setRegistroProfissional(String registro) { this.registroProfissional = registro; }
+    public String getSenha() { return senha; }
+    public void setSenha(String senha) { this.senha = senha; }
+    public String getCpf() { return cpf; }
+    public void setCpf(String cpf) { this.cpf = cpf; }
+    public String getDataNascimento() { return dataNascimento; }
+    public void setDataNascimento(String dataNascimento) { this.dataNascimento = dataNascimento; }
 }

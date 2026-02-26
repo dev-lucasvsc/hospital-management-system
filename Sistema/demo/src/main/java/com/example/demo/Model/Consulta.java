@@ -18,6 +18,9 @@ public class Consulta {
     private String prioridade; // S, P ou U
     private String status = "AGUARDANDO";
 
+    // ✨ AQUI ESTÁ A VARIÁVEL QUE FALTAVA!
+    private String observacoes;
+
     @ManyToOne(cascade = CascadeType.ALL)
     private Paciente paciente;
 }
