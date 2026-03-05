@@ -55,7 +55,9 @@ npm install
 
 # Iniciar a aplicação
 npm start
+
 📈 Próximos Passos
+
 [ ] Implementação de autenticação com Spring Security.
 
 [ ] Adição de sistema de notificações em tempo real para chamadas de pacientes.
