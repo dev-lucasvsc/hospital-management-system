@@ -48,7 +48,7 @@ export function Recepcao() {
     }
   }, [formData.cpf]);
 
-  // ✨ FUNÇÃO ATUALIZADA PARA IMPORTAR OS DADOS
+  // ✨ IMPORTAÇÃO WHATSAPP
   const importarWhatsApp = () => {
     if (preAgendamento) {
       setFormData(prev => ({
@@ -57,8 +57,8 @@ export function Recepcao() {
         dataNascimento: preAgendamento.dataNascimento || prev.dataNascimento,
         telefone: preAgendamento.telefone || prev.telefone
       }));
-      setPreAgendamento(null); // Esconde o banner verde
-      alert("✅ Dados do WhatsApp importados com sucesso!"); // Dá feedback ao utilizador
+      setPreAgendamento(null); 
+      alert("✅ Dados do WhatsApp importados com sucesso!");
     }
   };
 
@@ -108,9 +108,30 @@ export function Recepcao() {
     }, 1500);
   };
 
- const agendar = async () => {
+  // ✨ NOVA FUNÇÃO: Valida lógica de calendário e datas futuras
+  const isDataValida = (dataStr: string) => {
+    if (dataStr.length !== 10) return false;
+    const [dia, mes, ano] = dataStr.split('/').map(Number);
+    const dataRef = new Date(ano, mes - 1, dia);
+    const hoje = new Date();
+
+    const dataExiste = 
+      dataRef.getFullYear() === ano &&
+      dataRef.getMonth() === mes - 1 &&
+      dataRef.getDate() === dia;
+
+    return dataExiste && dataRef <= hoje && ano > 1890;
+  };
+
+  const agendar = async () => {
     const cpfLimpo = formData.cpf.replace(/\D/g, '');
     if (!formData.nome || cpfLimpo.length !== 11) return alert("Preencha Nome e CPF.");
+    
+    // ✨ Validação de Data aplicada aqui
+    if (!isDataValida(formData.dataNascimento)) {
+      return alert("Data de Nascimento inválida (verifique meses, bissextos ou datas futuras).");
+    }
+
     if (formData.possuiConvenio && statusConvenio !== 'aprovado') return alert("Valide a Carteirinha do Convênio!");
     
     try {
@@ -118,7 +139,6 @@ export function Recepcao() {
       
       const res = await axios.post('http://localhost:8080/consultas/agendar', { paciente: pacientePayload, prioridade: formData.prioridade });
       
-      // ✨ NOVO CÓDIGO: Avisa o Java para dar baixa no WhatsApp silenciosamente
       try {
         await axios.put(`http://localhost:8080/consultas/whatsapp/pre-agendamento/${cpfLimpo}/concluir`);
       } catch (e) {
