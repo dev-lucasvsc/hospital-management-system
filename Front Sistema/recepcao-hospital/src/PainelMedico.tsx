@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-// ✨ NOVAS IMPORTAÇÕES PARA O TEMPO REAL
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 
@@ -12,7 +11,7 @@ export function PainelMedico() {
   const [cpfBusca, setCpfBusca] = useState('');
   const [historicoPaciente, setHistoricoPaciente] = useState<any[] | null>(null);
 
-  // Função para buscar a fila via API (usada na carga inicial e quando o rádio avisa)
+  // Função para buscar a fila via API 
   const buscarFila = async (consultorioSelecionado: string) => {
     try {
       const url = consultorioSelecionado === 'Todos' 
@@ -31,16 +30,13 @@ export function PainelMedico() {
     // 1. Faz a busca inicial assim que o médico escolhe a sala
     buscarFila(meuConsultorio);
 
-    // 2. ✨ CONEXÃO WEBSOCKET (Ouvindo o rádio)
-    // Conecta no endereço que definimos no Java (WebSocketConfig)
+    // 2. CONEXÃO WEBSOCKET
     const socket = new SockJS('http://localhost:8080/ws-hospital');
     const stompClient = Stomp.over(socket);
     
-    // Desativa mensagens chatas de log no console do navegador
     stompClient.debug = () => {}; 
 
     stompClient.connect({}, () => {
-      // Se inscreve no canal "/topic/fila"
       stompClient.subscribe('/topic/fila', () => {
         // Quando o Java enviar qualquer mensagem nesse canal, o médico atualiza a fila!
         buscarFila(meuConsultorio);
@@ -74,8 +70,7 @@ export function PainelMedico() {
       });
       setConsultaFinalizando(null);
       setObservacoes('');
-      // Não precisamos chamar buscarFila() aqui manualmente, 
-      // pois o Java vai avisar via WebSocket que a fila mudou!
+      
     } catch (err) {
       alert("Erro ao finalizar atendimento.");
     }

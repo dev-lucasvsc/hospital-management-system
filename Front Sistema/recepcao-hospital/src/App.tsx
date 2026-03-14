@@ -4,7 +4,7 @@ import { PainelMedico } from './PainelMedico';
 import { Historico } from './Historico';
 import { MonitorTV } from './MonitorTv';
 import { Login } from './Login';
-import { PainelAdmin } from './PainelAdmin'; // Importe a tela nova!
+import { PainelAdmin } from './PainelAdmin';
 
 function App() {
   const [cargo, setCargo] = useState<string | null>(null);

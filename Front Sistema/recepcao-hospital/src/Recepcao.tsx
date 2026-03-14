@@ -48,7 +48,6 @@ export function Recepcao() {
     }
   }, [formData.cpf]);
 
-  // ✨ IMPORTAÇÃO WHATSAPP
   const importarWhatsApp = () => {
     if (preAgendamento) {
       setFormData(prev => ({
@@ -73,7 +72,7 @@ export function Recepcao() {
     } catch (err) {}
   };
 
-  // 🔎 BUSCA PACIENTE CADASTRADO
+  //  BUSCA PACIENTE CADASTRADO
   const buscarPaciente = async () => {
     const cpfLimpo = formData.cpf.replace(/\D/g, '');
     if (cpfLimpo.length !== 11) return alert("Digite o CPF completo antes de procurar.");
@@ -108,7 +107,7 @@ export function Recepcao() {
     }, 1500);
   };
 
-  // ✨ NOVA FUNÇÃO: Valida lógica de calendário e datas futuras
+  // FUNÇÃO: Valida lógica de calendário e datas futuras
   const isDataValida = (dataStr: string) => {
     if (dataStr.length !== 10) return false;
     const [dia, mes, ano] = dataStr.split('/').map(Number);
@@ -127,7 +126,7 @@ export function Recepcao() {
     const cpfLimpo = formData.cpf.replace(/\D/g, '');
     if (!formData.nome || cpfLimpo.length !== 11) return alert("Preencha Nome e CPF.");
     
-    // ✨ Validação de Data aplicada aqui
+    //  Validação de Data aplicada aqui
     if (!isDataValida(formData.dataNascimento)) {
       return alert("Data de Nascimento inválida (verifique meses, bissextos ou datas futuras).");
     }
@@ -156,7 +155,7 @@ export function Recepcao() {
     <div style={{ maxWidth: '850px', width: '100%', padding: '40px', backgroundColor: '#fff', color: '#333', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
       <h2 style={{ textAlign: 'center', color: '#0056b3', marginBottom: '30px' }}>🏥 Ficha de Cadastro Hospitalar</h2>
       
-      {/* ✨ BANNER DO WHATSAPP */}
+      {/*  BANNER DO WHATSAPP */}
       {preAgendamento && (
         <div style={{ backgroundColor: '#d4edda', border: '1px solid #c3e6cb', padding: '15px', borderRadius: '10px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ color: '#155724', fontWeight: 'bold' }}>💬 Encontramos um pré-agendamento via WhatsApp!</span>

@@ -50,7 +50,7 @@ export function MonitorTV({ aoVoltar }: { aoVoltar: () => void }) {
   };
 
   const chamadaAtual = fila.length > 0 ? fila[0] : null;
-  const proximos = fila.slice(1, 6); // Aumentei para 5 próximos
+  const proximos = fila.slice(1, 6);
 
   return (
     <div style={{ 
@@ -60,11 +60,11 @@ export function MonitorTV({ aoVoltar }: { aoVoltar: () => void }) {
       color: 'white', 
       display: 'flex', 
       flexDirection: 'column', 
-      position: 'fixed', // ✨ Mudado para FIXED
+      position: 'fixed',
       top: 0, 
       left: 0, 
       margin: 0,
-      zIndex: 99999, // ✨ Garante que fica por cima de tudo
+      zIndex: 99999,
       overflow: 'hidden'
     }}>
       {/* HEADER */}
