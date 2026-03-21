@@ -1,79 +1,122 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const CARGO_STYLE: Record<string, { color: string; bg: string }> = {
+  ADMIN:    { color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
+  MEDICO:   { color: 'var(--blue)', bg: 'rgba(59,130,246,0.1)' },
+  RECEPCAO: { color: 'var(--green)', bg: 'rgba(34,197,94,0.1)' },
+};
+
 export function PainelAdmin() {
   const [funcionarios, setFuncionarios] = useState<any[]>([]);
-  const [novo, setNovo] = useState({ nome: '', senha: '', cargo: 'RECEPCAO', registroProfissional: '', cpf: '', dataNascimento: '' });
+  const [novo, setNovo] = useState({ nome:'', senha:'', cargo:'RECEPCAO', registroProfissional:'', cpf:'', dataNascimento:'' });
+  const [loading, setLoading] = useState(false);
 
-  const maskCPF = (v: string) => v.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})/, '$1-$2').replace(/(-\d{2})\d+?$/, '$1');
-  const maskData = (v: string) => v.replace(/\D/g, '').replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{4})\d+?$/, '$1');
+  const maskCPF  = (v: string) => v.replace(/\D/g,'').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})/,'$1-$2').replace(/(-\d{2})\d+?$/,'$1');
+  const maskData = (v: string) => v.replace(/\D/g,'').replace(/(\d{2})(\d)/,'$1/$2').replace(/(\d{2})(\d)/,'$1/$2').replace(/(\d{4})\d+?$/,'$1');
 
   const handleChange = (e: any) => {
     let { name, value } = e.target;
-    if (name === 'cpf') value = maskCPF(value);
-    if (name === 'dataNascimento') value = maskData(value);
+    if (name==='cpf') value=maskCPF(value);
+    if (name==='dataNascimento') value=maskData(value);
     setNovo({ ...novo, [name]: value });
   };
 
-  const carregarFuncionarios = async () => {
-    const res = await axios.get('http://localhost:8080/funcionarios');
-    setFuncionarios(res.data);
-  };
+  const carregar = async () => { const res = await axios.get('http://localhost:8080/funcionarios'); setFuncionarios(res.data); };
+  useEffect(() => { carregar(); }, []);
 
   const cadastrar = async () => {
-    if (!novo.nome || !novo.senha || novo.cpf.length < 14) return alert("Preencha o nome, senha e o CPF completo!");
-    await axios.post('http://localhost:8080/funcionarios/cadastrar', novo);
-    alert("✅ Funcionário cadastrado com sucesso!");
-    setNovo({ nome: '', senha: '', cargo: 'RECEPCAO', registroProfissional: '', cpf: '', dataNascimento: '' });
-    carregarFuncionarios();
+    if (!novo.nome || !novo.senha || novo.cpf.length<14) return alert('Preencha nome, senha e CPF completo.');
+    setLoading(true);
+    try {
+      await axios.post('http://localhost:8080/funcionarios/cadastrar', { ...novo, cpf: novo.cpf.replace(/\D/g,'') });
+      setNovo({ nome:'', senha:'', cargo:'RECEPCAO', registroProfissional:'', cpf:'', dataNascimento:'' });
+      carregar();
+    } catch { alert('Erro ao cadastrar.'); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => { carregarFuncionarios(); }, []);
-
-  const getCorCargo = (c: string) => { c === 'ADMIN' ? '#e74c3c' : (c === 'MEDICO' ? '#3498db' : '#2ecc71') };
-
   return (
-    <div style={{ maxWidth: '1000px', width: '100%', margin: '20px auto', color: 'white' }}>
-      <h1 style={{ color: '#f39c12', textAlign: 'center', marginBottom: '30px' }}>👑 Gestão de Equipe</h1>
-      
-      <div style={{ backgroundColor: '#242424', padding: '20px', borderRadius: '10px', marginBottom: '30px', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-        <input placeholder="Nome Completo" name="nome" value={novo.nome} onChange={handleChange} style={inputStyle} />
-        <input placeholder="CPF" name="cpf" value={novo.cpf} onChange={handleChange} style={{...inputStyle, maxWidth: '150px'}} />
-        <input placeholder="Nascimento" name="dataNascimento" value={novo.dataNascimento} onChange={handleChange} style={{...inputStyle, maxWidth: '120px'}} />
-        <input placeholder="Definir Senha" type="password" name="senha" value={novo.senha} onChange={handleChange} style={{...inputStyle, maxWidth: '150px'}} />
-        
-        <select name="cargo" value={novo.cargo} onChange={handleChange} style={inputStyle}>
-          <option value="RECEPCAO">Recepção</option>
-          <option value="MEDICO">Médico</option>
-          <option value="ADMIN">Administrador</option>
-        </select>
-        
-        {novo.cargo === 'MEDICO' && <input placeholder="CRM" name="registroProfissional" value={novo.registroProfissional} onChange={handleChange} style={{...inputStyle, maxWidth: '120px'}} />}
-
-        <button onClick={cadastrar} style={{ padding: '10px 20px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer', flex: 1 }}>➕ Criar Acesso</button>
+    <div style={{ maxWidth: 800, margin: '0 auto' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Gestão de Equipe</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{funcionarios.length} funcionários cadastrados</p>
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#1a1a1a', border: '1px solid #444' }}>
-        <thead>
-          <tr style={{ background: '#333', color: '#f39c12' }}>
-            <th style={{ padding: '15px' }}>Matrícula</th>
-            <th>Nome</th>
-            <th>CPF</th>
-            <th>Cargo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {funcionarios.map(f => (
-            <tr key={f.id} style={{ borderBottom: '1px solid #444', textAlign: 'center' }}>
-              <td style={{ padding: '15px', fontSize: '24px', fontWeight: 'bold' }}>{f.id}</td>
-              <td style={{ fontSize: '18px' }}>{f.nome}</td>
-              <td>{f.cpf || '-'}</td>
-              <td><span style={{ backgroundColor: f.cargo === 'ADMIN' ? '#e74c3c' : (f.cargo === 'MEDICO' ? '#3498db' : '#2ecc71'), padding: '5px 10px', borderRadius: '5px', fontWeight: 'bold' }}>{f.cargo}</span></td>
+      {/* Formulário novo funcionário */}
+      <div className="card" style={{ padding: '20px', marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 16 }}>
+          Novo acesso
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px 14px' }}>
+          <div style={{ gridColumn: 'span 2' }}>
+            <label className="label">Nome completo</label>
+            <input className="input" name="nome" value={novo.nome} onChange={handleChange} />
+          </div>
+          <div>
+            <label className="label">Cargo</label>
+            <select className="input" name="cargo" value={novo.cargo} onChange={handleChange}>
+              <option value="RECEPCAO">Recepção</option>
+              <option value="MEDICO">Médico</option>
+              <option value="ADMIN">Administrador</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">CPF</label>
+            <input className="input" name="cpf" value={novo.cpf} onChange={handleChange} placeholder="000.000.000-00" />
+          </div>
+          <div>
+            <label className="label">Nascimento</label>
+            <input className="input" name="dataNascimento" value={novo.dataNascimento} onChange={handleChange} placeholder="DD/MM/AAAA" />
+          </div>
+          <div>
+            <label className="label">Senha</label>
+            <input className="input" type="password" name="senha" value={novo.senha} onChange={handleChange} />
+          </div>
+          {novo.cargo==='MEDICO' && (
+            <div>
+              <label className="label">CRM</label>
+              <input className="input" name="registroProfissional" value={novo.registroProfissional} onChange={handleChange} />
+            </div>
+          )}
+        </div>
+        <div style={{ marginTop: 16, display:'flex', justifyContent:'flex-end' }}>
+          <button className="btn btn-primary" onClick={cadastrar} disabled={loading}>
+            {loading ? 'Criando...' : '+ Criar acesso'}
+          </button>
+        </div>
+      </div>
+
+      {/* Lista */}
+      <div className="card" style={{ padding: 0, overflow:'hidden' }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Matrícula</th>
+              <th>Nome</th>
+              <th>CPF</th>
+              <th>Cargo</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {funcionarios.map(f => {
+              const style = CARGO_STYLE[f.cargo] || CARGO_STYLE.RECEPCAO;
+              return (
+                <tr key={f.id}>
+                  <td><span style={{ fontFamily:'var(--font-mono)', color:'var(--text-primary)', fontWeight:600 }}>#{f.id}</span></td>
+                  <td style={{ color:'var(--text-primary)', fontWeight:500 }}>{f.nome}</td>
+                  <td style={{ fontFamily:'var(--font-mono)' }}>{f.cpf || '—'}</td>
+                  <td>
+                    <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:99, fontSize:11, fontWeight:600, background: style.bg, color: style.color }}>
+                      {f.cargo}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
-const inputStyle = { padding: '12px', borderRadius: '5px', border: 'none', flex: 1, minWidth: '130px', fontSize: '15px' };

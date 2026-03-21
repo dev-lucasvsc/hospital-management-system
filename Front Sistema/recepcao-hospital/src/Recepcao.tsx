@@ -1,22 +1,48 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
+/**
+ * Tela da recepção: cadastro de pacientes e geração de senhas na fila.
+ *
+ * Funcionalidades:
+ * - Cadastro completo: identificação, endereço, filiação, convênio, triagem
+ * - Busca automática de paciente existente pelo CPF
+ * - Integração com ViaCEP para preenchimento automático de endereço
+ * - Importação de dados pré-cadastrados via WhatsApp
+ * - Geração de senha com prioridade (S / P / U)
+ *
+ * IMPORTANTE: O CPF é enviado ao backend sem máscara (apenas dígitos).
+ * A máscara é apenas visual, para facilitar a digitação.
+ */
 export function Recepcao() {
   const [formData, setFormData] = useState({
-    nome: '', dataNascimento: '', genero: '', generoOutro: '', cpf: '', numeroSus: '', 
+    nome: '', dataNascimento: '', genero: '', cpf: '', numeroSus: '',
     possuiConvenio: false, numeroConvenio: '', prioridade: 'S',
     cep: '', rua: '', bairro: '', cidade: '', uf: '',
-    telefone: '', nomeMae: '', nomePai: '', peso: '', altura: ''
+    telefone: '', nomeMae: '', nomePai: '', peso: '', altura: '',
   });
-  
-  const [consultaGerada, setConsultaGerada] = useState<any>(null);
-  const [statusConvenio, setStatusConvenio] = useState<'pendente' | 'validando' | 'aprovado' | 'negado'>('pendente');
-  const [preAgendamento, setPreAgendamento] = useState<any>(null);
 
-  // MÁSCARAS
-  const maskCPF = (v: string) => v.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})/, '$1-$2').replace(/(-\d{2})\d+?$/, '$1');
-  const maskData = (v: string) => v.replace(/\D/g, '').replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{4})\d+?$/, '$1');
-  const maskCEP = (v: string) => v.replace(/\D/g, '').replace(/(\d{5})(\d)/, '$1-$2').slice(0, 9);
+  const [consultaGerada, setConsultaGerada]     = useState<any>(null);
+  const [statusConvenio, setStatusConvenio]     = useState<'pendente' | 'validando' | 'aprovado' | 'negado'>('pendente');
+  const [preAgendamento, setPreAgendamento]     = useState<any>(null);
+
+  // Máscaras visuais (apenas para exibição — o backend recebe sem máscara)
+  const maskCPF = (v: string) =>
+    v.replace(/\D/g, '')
+     .replace(/(\d{3})(\d)/, '$1.$2')
+     .replace(/(\d{3})(\d)/, '$1.$2')
+     .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+     .replace(/(-\d{2})\d+?$/, '$1');
+
+  const maskData = (v: string) =>
+    v.replace(/\D/g, '')
+     .replace(/(\d{2})(\d)/, '$1/$2')
+     .replace(/(\d{2})(\d)/, '$1/$2')
+     .replace(/(\d{4})\d+?$/, '$1');
+
+  const maskCEP = (v: string) =>
+    v.replace(/\D/g, '').replace(/(\d{5})(\d)/, '$1-$2').slice(0, 9);
+
   const maskTelefone = (v: string) => {
     v = v.replace(/\D/g, '');
     v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
@@ -27,20 +53,24 @@ export function Recepcao() {
   const handleChange = (e: any) => {
     const { name, value } = e.target;
     let val = value;
-    if (name === 'cpf') val = maskCPF(value);
+    if (name === 'cpf')           val = maskCPF(value);
     if (name === 'dataNascimento') val = maskData(value);
-    if (name === 'numeroSus') val = value.replace(/\D/g, '').slice(0, 15);
-    if (name === 'cep') val = maskCEP(value);
-    if (name === 'telefone') val = maskTelefone(value);
-    
+    if (name === 'numeroSus')     val = value.replace(/\D/g, '').slice(0, 15);
+    if (name === 'cep')           val = maskCEP(value);
+    if (name === 'telefone')      val = maskTelefone(value);
     if (name === 'numeroConvenio') setStatusConvenio('pendente');
-    setFormData(prev => ({ ...prev, [name]: name === 'possuiConvenio' ? value === 'true' : val }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'possuiConvenio' ? value === 'true' : val,
+    }));
   };
 
+  // Verifica automaticamente se há pré-agendamento WhatsApp quando CPF é preenchido
   useEffect(() => {
     const cpfLimpo = formData.cpf.replace(/\D/g, '');
     if (cpfLimpo.length === 11) {
-      axios.get(`http://localhost:8080/consultas/whatsapp/pre-agendamento/${cpfLimpo}`)
+      axios
+        .get(`http://localhost:8080/consultas/whatsapp/pre-agendamento/${cpfLimpo}`)
         .then(res => setPreAgendamento(res.data))
         .catch(() => setPreAgendamento(null));
     } else {
@@ -52,186 +82,208 @@ export function Recepcao() {
     if (preAgendamento) {
       setFormData(prev => ({
         ...prev,
-        nome: preAgendamento.nome || prev.nome,
+        nome:           preAgendamento.nome           || prev.nome,
         dataNascimento: preAgendamento.dataNascimento || prev.dataNascimento,
-        telefone: preAgendamento.telefone || prev.telefone
+        telefone:       preAgendamento.telefone       || prev.telefone,
       }));
-      setPreAgendamento(null); 
-      alert("✅ Dados do WhatsApp importados com sucesso!");
+      setPreAgendamento(null);
+      alert('✅ Dados do WhatsApp importados com sucesso!');
     }
   };
 
   const buscarCep = async () => {
     const cepLimpo = formData.cep.replace(/\D/g, '');
-    if (cepLimpo.length !== 8) return alert("Digite um CEP válido com 8 dígitos.");
+    if (cepLimpo.length !== 8) return alert('Digite um CEP válido com 8 dígitos.');
     try {
       const res = await axios.get(`https://viacep.com.br/ws/${cepLimpo}/json/`);
       if (!res.data.erro) {
-        setFormData(prev => ({ ...prev, rua: res.data.logradouro, bairro: res.data.bairro, cidade: res.data.localidade, uf: res.data.uf }));
-      }
-    } catch (err) {}
-  };
-
-  //  BUSCA PACIENTE CADASTRADO
-  const buscarPaciente = async () => {
-    const cpfLimpo = formData.cpf.replace(/\D/g, '');
-    if (cpfLimpo.length !== 11) return alert("Digite o CPF completo antes de procurar.");
-    
-    try {
-      const res = await axios.get(`http://localhost:8080/consultas/pacientes/${cpfLimpo}`);
-      if (res.data) {
         setFormData(prev => ({
           ...prev,
-          nome: res.data.nome || '', dataNascimento: res.data.dataNascimento || '',
-          genero: res.data.genero || '', numeroSus: res.data.numeroSus || '',
-          possuiConvenio: res.data.possuiConvenio || false, numeroConvenio: res.data.numeroConvenio || '',
-          cep: res.data.cep || '', rua: res.data.rua || '', bairro: res.data.bairro || '',
-          cidade: res.data.cidade || '', uf: res.data.uf || '',
-          telefone: res.data.telefone || '', nomeMae: res.data.nomeMae || '', 
-          nomePai: res.data.nomePai || '', peso: res.data.peso || '', altura: res.data.altura || ''
+          rua:    res.data.logradouro,
+          bairro: res.data.bairro,
+          cidade: res.data.localidade,
+          uf:     res.data.uf,
         }));
-        if (res.data.possuiConvenio) setStatusConvenio('aprovado');
-        alert("✅ Paciente encontrado!");
       }
-    } catch (err: any) {
-      if (err.response && err.response.status === 404) alert("ℹ️ Paciente novo. Preencha os dados.");
+    } catch {}
+  };
+
+  const buscarPaciente = async () => {
+    const cpfLimpo = formData.cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) return alert('Digite o CPF completo antes de procurar.');
+    try {
+      const res = await axios.get(`http://localhost:8080/consultas/historico/${cpfLimpo}`);
+      if (res.data.length > 0) {
+        const paciente = res.data[0].paciente;
+        setFormData(prev => ({
+          ...prev,
+          nome:           paciente.nome           || prev.nome,
+          dataNascimento: paciente.dataNascimento || prev.dataNascimento,
+          numeroSus:      paciente.numeroSus      || prev.numeroSus,
+          genero:         paciente.genero         || prev.genero,
+          telefone:       paciente.telefone       || prev.telefone,
+          nomeMae:        paciente.nomeMae        || prev.nomeMae,
+          nomePai:        paciente.nomePai        || prev.nomePai,
+          peso:           paciente.peso           || prev.peso,
+          altura:         paciente.altura         || prev.altura,
+          cep:            paciente.cep            || prev.cep,
+          rua:            paciente.rua            || prev.rua,
+          bairro:         paciente.bairro         || prev.bairro,
+          cidade:         paciente.cidade         || prev.cidade,
+          uf:             paciente.uf             || prev.uf,
+        }));
+        alert('✅ Paciente encontrado! Dados preenchidos automaticamente.');
+      } else {
+        alert('Paciente não encontrado. Preencha os dados manualmente.');
+      }
+    } catch {
+      alert('Erro ao buscar paciente.');
     }
   };
 
   const validarConvenio = () => {
-    if (!formData.numeroConvenio) return;
+    if (!formData.numeroConvenio) return alert('Digite o número do convênio primeiro.');
     setStatusConvenio('validando');
+    // Simulação de validação (integração real com operadora é trabalho futuro)
     setTimeout(() => {
-      if (formData.numeroConvenio.endsWith('000')) setStatusConvenio('negado');
-      else setStatusConvenio('aprovado');
+      setStatusConvenio(formData.numeroConvenio.length >= 8 ? 'aprovado' : 'negado');
     }, 1500);
-  };
-
-  // FUNÇÃO: Valida lógica de calendário e datas futuras
-  const isDataValida = (dataStr: string) => {
-    if (dataStr.length !== 10) return false;
-    const [dia, mes, ano] = dataStr.split('/').map(Number);
-    const dataRef = new Date(ano, mes - 1, dia);
-    const hoje = new Date();
-
-    const dataExiste = 
-      dataRef.getFullYear() === ano &&
-      dataRef.getMonth() === mes - 1 &&
-      dataRef.getDate() === dia;
-
-    return dataExiste && dataRef <= hoje && ano > 1890;
   };
 
   const agendar = async () => {
     const cpfLimpo = formData.cpf.replace(/\D/g, '');
-    if (!formData.nome || cpfLimpo.length !== 11) return alert("Preencha Nome e CPF.");
-    
-    //  Validação de Data aplicada aqui
-    if (!isDataValida(formData.dataNascimento)) {
-      return alert("Data de Nascimento inválida (verifique meses, bissextos ou datas futuras).");
+    if (!formData.nome || cpfLimpo.length !== 11) {
+      return alert('Nome e CPF (11 dígitos) são obrigatórios.');
     }
 
-    if (formData.possuiConvenio && statusConvenio !== 'aprovado') return alert("Valide a Carteirinha do Convênio!");
-    
+    const payload = {
+      prioridade: formData.prioridade,
+      paciente: {
+        ...formData,
+        cpf: cpfLimpo, // envia sem máscara
+      },
+    };
+
     try {
-      const pacientePayload = { ...formData, cpf: cpfLimpo };
-      
-      const res = await axios.post('http://localhost:8080/consultas/agendar', { paciente: pacientePayload, prioridade: formData.prioridade });
-      
-      try {
+      const res = await axios.post('http://localhost:8080/consultas/agendar', payload);
+      setConsultaGerada(res.data);
+
+      // Marca o pré-agendamento do WhatsApp como importado, se existia
+      if (preAgendamento) {
         await axios.put(`http://localhost:8080/consultas/whatsapp/pre-agendamento/${cpfLimpo}/concluir`);
-      } catch (e) {
-        console.log("Nenhum pré-agendamento pendente para concluir.");
       }
 
-      setConsultaGerada(res.data);
-      alert(`Cadastrado com sucesso! Consultório: ${res.data.consultorio}`);
-      setFormData({ nome: '', dataNascimento: '', genero: '', generoOutro: '', cpf: '', numeroSus: '', possuiConvenio: false, numeroConvenio: '', prioridade: 'S', cep: '', rua: '', bairro: '', cidade: '', uf: '', telefone: '', nomeMae: '', nomePai: '', peso: '', altura: '' });
-      setStatusConvenio('pendente');
-    } catch (err) { alert("Erro ao salvar."); }
+      // Limpa o formulário para o próximo paciente
+      setFormData({
+        nome: '', dataNascimento: '', genero: '', cpf: '', numeroSus: '',
+        possuiConvenio: false, numeroConvenio: '', prioridade: 'S',
+        cep: '', rua: '', bairro: '', cidade: '', uf: '',
+        telefone: '', nomeMae: '', nomePai: '', peso: '', altura: '',
+      });
+    } catch {
+      alert('Erro ao cadastrar paciente. Verifique o backend.');
+    }
   };
 
   return (
-    <div style={{ maxWidth: '850px', width: '100%', padding: '40px', backgroundColor: '#fff', color: '#333', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
-      <h2 style={{ textAlign: 'center', color: '#0056b3', marginBottom: '30px' }}>🏥 Ficha de Cadastro Hospitalar</h2>
-      
-      {/*  BANNER DO WHATSAPP */}
+    <div style={{ maxWidth: '800px', width: '100%', backgroundColor: 'white', color: '#333', padding: '30px', borderRadius: '15px', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+      <h2 style={{ textAlign: 'center', color: '#0056b3', marginBottom: '25px' }}>🏥 Cadastro de Paciente</h2>
+
+      {/* Banner de pré-agendamento WhatsApp */}
       {preAgendamento && (
-        <div style={{ backgroundColor: '#d4edda', border: '1px solid #c3e6cb', padding: '15px', borderRadius: '10px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#155724', fontWeight: 'bold' }}>💬 Encontramos um pré-agendamento via WhatsApp!</span>
-          <button onClick={importarWhatsApp} style={{ padding: '8px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Importar Dados</button>
+        <div style={{ backgroundColor: '#d4edda', border: '1px solid #28a745', borderRadius: '8px', padding: '15px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <strong>📱 Pré-agendamento via WhatsApp encontrado!</strong>
+            <p style={{ margin: '5px 0 0 0' }}>
+              Nome: <strong>{preAgendamento.nome}</strong> — Sintomas: {preAgendamento.sintomas}
+            </p>
+          </div>
+          <button onClick={importarWhatsApp} style={{ padding: '8px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            Importar Dados
+          </button>
         </div>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', textAlign: 'left' }}>
-        
-        {/* BLOCO 1: IDENTIFICAÇÃO BÁSICA */}
+
+        {/* 1. Identificação */}
         <div style={{ gridColumn: 'span 2', paddingBottom: '15px', borderBottom: '2px solid #eee' }}>
           <h4 style={{ margin: '0 0 15px 0', color: '#555' }}>1. Identificação Principal</h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             <div style={{ gridColumn: 'span 2' }}>
               <label style={labelStyle}>CPF do Paciente:</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input name="cpf" value={formData.cpf} placeholder="000.000.000-00" onChange={handleChange} style={{...inputStyle, flex: 1}} />
+                <input name="cpf" value={formData.cpf} placeholder="000.000.000-00" onChange={handleChange} style={{ ...inputStyle, flex: 1 }} />
                 <button onClick={buscarPaciente} type="button" style={{ padding: '0 15px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🔎 Procurar</button>
               </div>
             </div>
-            <div style={{ gridColumn: 'span 2' }}><label style={labelStyle}>Nome Completo:</label><input name="nome" value={formData.nome} onChange={handleChange} style={inputStyle} /></div>
-            <div><label style={labelStyle}>Data de Nascimento:</label><input name="dataNascimento" value={formData.dataNascimento} placeholder="DD/MM/AAAA" onChange={handleChange} style={inputStyle} /></div>
-            <div><label style={labelStyle}>Nº Cartão SUS:</label><input name="numeroSus" value={formData.numeroSus} onChange={handleChange} style={inputStyle} /></div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={labelStyle}>Nome Completo:</label>
+              <input name="nome" value={formData.nome} onChange={handleChange} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Data de Nascimento:</label>
+              <input name="dataNascimento" value={formData.dataNascimento} placeholder="DD/MM/AAAA" onChange={handleChange} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Nº Cartão SUS:</label>
+              <input name="numeroSus" value={formData.numeroSus} onChange={handleChange} style={inputStyle} />
+            </div>
           </div>
         </div>
 
-        {/* BLOCO 2: DADOS COMPLEMENTARES */}
+        {/* 2. Contato e filiação */}
         <div style={{ gridColumn: 'span 2', paddingBottom: '15px', borderBottom: '2px solid #eee' }}>
           <h4 style={{ margin: '0 0 15px 0', color: '#555' }}>2. Contato, Filiação e Dados Físicos</h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
-            <div><label style={labelStyle}>Telefone / Celular:</label><input name="telefone" value={formData.telefone} onChange={handleChange} placeholder="(00) 00000-0000" style={inputStyle} /></div>
-            <div><label style={labelStyle}>Peso Atual (kg):</label><input type="number" step="0.1" name="peso" value={formData.peso} onChange={handleChange} placeholder="Ex: 75.5" style={inputStyle} /></div>
-            <div><label style={labelStyle}>Altura (m):</label><input type="number" step="0.01" name="altura" value={formData.altura} onChange={handleChange} placeholder="Ex: 1.75" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Telefone:</label><input name="telefone" value={formData.telefone} onChange={handleChange} placeholder="(00) 00000-0000" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Peso (kg):</label><input type="number" step="0.1" name="peso" value={formData.peso} onChange={handleChange} placeholder="75.5" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Altura (m):</label><input type="number" step="0.01" name="altura" value={formData.altura} onChange={handleChange} placeholder="1.75" style={inputStyle} /></div>
             <div style={{ gridColumn: 'span 3' }}><label style={labelStyle}>Nome da Mãe:</label><input name="nomeMae" value={formData.nomeMae} onChange={handleChange} style={inputStyle} /></div>
             <div style={{ gridColumn: 'span 3' }}><label style={labelStyle}>Nome do Pai (Opcional):</label><input name="nomePai" value={formData.nomePai} onChange={handleChange} style={inputStyle} /></div>
           </div>
         </div>
 
-        {/* BLOCO 3: ENDEREÇO */}
+        {/* 3. Endereço */}
         <div style={{ gridColumn: 'span 2', backgroundColor: '#f0f7ff', padding: '20px', borderRadius: '10px', border: '1px solid #cce5ff' }}>
           <h4 style={{ margin: '0 0 15px 0', color: '#0056b3' }}>📍 3. Endereço</h4>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
             <div style={{ flex: 1 }}><label style={labelStyle}>CEP:</label><input name="cep" value={formData.cep} onChange={handleChange} placeholder="00000-000" style={inputStyle} /></div>
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}><button onClick={buscarCep} type="button" style={{ padding: '12px 20px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Buscar CEP</button></div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button onClick={buscarCep} type="button" style={{ padding: '12px 20px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Buscar CEP</button>
+            </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
-            <div><label style={labelStyle}>Rua/Logradouro:</label><input name="rua" value={formData.rua} onChange={handleChange} style={inputStyle} /></div>
+            <div><label style={labelStyle}>Rua:</label><input name="rua" value={formData.rua} onChange={handleChange} style={inputStyle} /></div>
             <div><label style={labelStyle}>Bairro:</label><input name="bairro" value={formData.bairro} onChange={handleChange} style={inputStyle} /></div>
             <div><label style={labelStyle}>Cidade:</label><input name="cidade" value={formData.cidade} onChange={handleChange} style={inputStyle} /></div>
-            <div><label style={labelStyle}>Estado (UF):</label><input name="uf" value={formData.uf} onChange={handleChange} style={inputStyle} /></div>
+            <div><label style={labelStyle}>UF:</label><input name="uf" value={formData.uf} onChange={handleChange} style={inputStyle} /></div>
           </div>
         </div>
 
-        {/* BLOCO 4: CONVÊNIO */}
+        {/* 4. Convênio */}
         <div style={{ gridColumn: 'span 2', padding: '15px', border: '1px dashed #bbb', borderRadius: '10px' }}>
           <label style={labelStyle}>4. Possui Convênio Médico?</label>
           <div style={{ display: 'flex', gap: '20px', marginTop: '5px', marginBottom: '15px' }}>
-            <label><input type="radio" name="possuiConvenio" value="true" checked={formData.possuiConvenio === true} onChange={handleChange} /> Sim</label>
-            <label><input type="radio" name="possuiConvenio" value="false" checked={formData.possuiConvenio === false} onChange={handleChange} /> Não, é Particular/SUS</label>
+            <label><input type="radio" name="possuiConvenio" value="true"  checked={formData.possuiConvenio === true}  onChange={handleChange} /> Sim</label>
+            <label><input type="radio" name="possuiConvenio" value="false" checked={formData.possuiConvenio === false} onChange={handleChange} /> Não (Particular/SUS)</label>
           </div>
           {formData.possuiConvenio && (
             <div style={{ backgroundColor: '#fffbe6', padding: '15px', borderRadius: '8px', border: '1px solid #ffe58f' }}>
-              <label style={labelStyle}>Nº da Carteirinha do Convênio:</label>
+              <label style={labelStyle}>Nº da Carteirinha:</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input name="numeroConvenio" value={formData.numeroConvenio} onChange={handleChange} style={{...inputStyle, flex: 1}} />
+                <input name="numeroConvenio" value={formData.numeroConvenio} onChange={handleChange} style={{ ...inputStyle, flex: 1 }} />
                 <button onClick={validarConvenio} type="button" disabled={statusConvenio === 'validando'} style={{ padding: '0 20px', backgroundColor: '#faad14', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  {statusConvenio === 'validando' ? '⏳ Verificando...' : '🛡️ Validar Elegibilidade'}
+                  {statusConvenio === 'validando' ? '⏳ Verificando...' : '🛡️ Validar'}
                 </button>
               </div>
               {statusConvenio === 'aprovado' && <p style={{ color: '#52c41a', fontWeight: 'bold', margin: '10px 0 0 0' }}>✅ Elegibilidade Aprovada.</p>}
-              {statusConvenio === 'negado' && <p style={{ color: '#f5222d', fontWeight: 'bold', margin: '10px 0 0 0' }}>❌ Elegibilidade Negada.</p>}
+              {statusConvenio === 'negado'   && <p style={{ color: '#f5222d', fontWeight: 'bold', margin: '10px 0 0 0' }}>❌ Elegibilidade Negada.</p>}
             </div>
           )}
         </div>
 
-        {/* BLOCO 5: TRIAGEM */}
+        {/* 5. Triagem */}
         <div style={{ gridColumn: 'span 2', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '10px', border: '1px solid #eee' }}>
           <label style={labelStyle}>5. Grau de Urgência (Triagem):</label>
           <div style={{ display: 'flex', gap: '20px', marginTop: '10px' }}>
@@ -240,14 +292,13 @@ export function Recepcao() {
             <label style={{ color: '#e74c3c', fontWeight: 'bold' }}><input type="radio" name="prioridade" value="U" checked={formData.prioridade === 'U'} onChange={handleChange} /> Urgente (U)</label>
           </div>
         </div>
-
       </div>
 
       <button onClick={agendar} style={buttonStyle}>CADASTRAR E GERAR SENHA</button>
 
       {consultaGerada && (
         <div style={{ marginTop: '30px', padding: '20px', border: '3px dashed #0056b3', borderRadius: '10px', backgroundColor: '#f0f7ff', textAlign: 'center' }}>
-          <h2 style={{ margin: 0 }}>SENHA:</h2>
+          <h2 style={{ margin: 0 }}>SENHA GERADA:</h2>
           <h1 style={{ fontSize: '60px', color: '#0056b3', margin: '10px 0' }}>{consultaGerada.senha}</h1>
           <p>Consultório Destino: <strong>{consultaGerada.consultorio}</strong></p>
         </div>
@@ -256,6 +307,6 @@ export function Recepcao() {
   );
 }
 
-const labelStyle = { display: 'block', fontWeight: 'bold' as const, marginBottom: '5px', color: '#555', fontSize: '14px' };
-const inputStyle = { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ddd', boxSizing: 'border-box' as const, fontSize: '15px' };
+const labelStyle  = { display: 'block', fontWeight: 'bold' as const, marginBottom: '5px', color: '#555', fontSize: '14px' };
+const inputStyle  = { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ddd', boxSizing: 'border-box' as const, fontSize: '15px' };
 const buttonStyle = { width: '100%', marginTop: '30px', padding: '15px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' as const, fontSize: '18px' };

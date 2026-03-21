@@ -4,194 +4,199 @@ import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 
 export function PainelMedico() {
-  const [fila, setFila] = useState<any[]>([]);
-  const [meuConsultorio, setMeuConsultorio] = useState<string | null>(null);
-  const [consultaFinalizando, setConsultaFinalizando] = useState<any>(null);
-  const [observacoes, setObservacoes] = useState('');
-  const [cpfBusca, setCpfBusca] = useState('');
-  const [historicoPaciente, setHistoricoPaciente] = useState<any[] | null>(null);
+  const [fila, setFila]                       = useState<any[]>([]);
+  const [consultorio, setConsultorio]         = useState<string|null>(null);
+  const [finalizando, setFinalizando]         = useState<any>(null);
+  const [obs, setObs]                         = useState('');
+  const [cpfBusca, setCpfBusca]               = useState('');
+  const [historico, setHistorico]             = useState<any[]|null>(null);
 
-  // Função para buscar a fila via API 
-  const buscarFila = async (consultorioSelecionado: string) => {
+  const buscarFila = async (c: string) => {
     try {
-      const url = consultorioSelecionado === 'Todos' 
-        ? 'http://localhost:8080/consultas/fila' 
-        : `http://localhost:8080/consultas/fila/${consultorioSelecionado}`;
+      const url = c==='Todos' ? 'http://localhost:8080/consultas/fila' : `http://localhost:8080/consultas/fila/${c}`;
       const res = await axios.get(url);
       setFila(res.data);
-    } catch (err) {
-      console.error("Erro ao buscar fila");
-    }
+    } catch {}
   };
 
   useEffect(() => {
-    if (!meuConsultorio) return;
-    
-    // 1. Faz a busca inicial assim que o médico escolhe a sala
-    buscarFila(meuConsultorio);
-
-    // 2. CONEXÃO WEBSOCKET
+    if (!consultorio) return;
+    buscarFila(consultorio);
     const socket = new SockJS('http://localhost:8080/ws-hospital');
-    const stompClient = Stomp.over(socket);
-    
-    stompClient.debug = () => {}; 
+    const stomp = Stomp.over(socket);
+    stomp.debug = () => {};
+    stomp.connect({}, () => stomp.subscribe('/topic/fila', () => buscarFila(consultorio)));
+    return () => { if (stomp?.connected) stomp.disconnect(() => {}); };
+  }, [consultorio]);
 
-    stompClient.connect({}, () => {
-      stompClient.subscribe('/topic/fila', () => {
-        // Quando o Java enviar qualquer mensagem nesse canal, o médico atualiza a fila!
-        buscarFila(meuConsultorio);
-      });
-    });
-
-    // Limpeza ao fechar a tela: desliga o rádio para não gastar memória
-    return () => {
-      if (stompClient) {
-        stompClient.disconnect(() => {
-          console.log("WebSocket desconectado");
-        });
-      }
-    };
-  }, [meuConsultorio]);
-
-  const chamarPacienteVoz = (nome: string, consultorio: string, senha: string) => {
-    const mensagem = new SpeechSynthesisUtterance();
-    const senhaSoletrada = senha.split('').join(' ');
-    mensagem.text = `Atenção: Senha ${senhaSoletrada}. ${nome}. Comparecer ao consultório ${consultorio}`;
-    mensagem.lang = 'pt-BR';
-    mensagem.rate = 0.9;
-    window.speechSynthesis.speak(mensagem);
+  const chamarVoz = (nome: string, sala: string, senha: string) => {
+    const u = new SpeechSynthesisUtterance();
+    u.text = `Atenção: Senha ${senha.split('').join(' ')}. ${nome}. Comparecer ao consultório ${sala}`;
+    u.lang = 'pt-BR'; u.rate = 0.9;
+    window.speechSynthesis.speak(u);
   };
 
-  const confirmarFinalizacao = async () => {
-    if (!consultaFinalizando) return;
+  const concluir = async () => {
+    if (!finalizando) return;
     try {
-      await axios.put(`http://localhost:8080/consultas/${consultaFinalizando.id}/concluir`, { 
-        observacoes: observacoes 
-      });
-      setConsultaFinalizando(null);
-      setObservacoes('');
-      
-    } catch (err) {
-      alert("Erro ao finalizar atendimento.");
-    }
-  };
-
-  const handleCpfChange = (e: any) => {
-    let v = e.target.value.replace(/\D/g, '');
-    v = v.replace(/(\d{3})(\d)/, '$1.$2');
-    v = v.replace(/(\d{3})(\d)/, '$1.$2');
-    v = v.replace(/(\d{3})(\d{1,2})/, '$1-$2');
-    v = v.replace(/(-\d{2})\d+?$/, '$1');
-    setCpfBusca(v);
+      await axios.put(`http://localhost:8080/consultas/${finalizando.id}/concluir`, obs);
+      setFinalizando(null); setObs('');
+    } catch { alert('Erro ao finalizar.'); }
   };
 
   const buscarHistorico = async () => {
-    if (cpfBusca.length < 14) return alert("Digite o CPF completo.");
+    const cpfLimpo = cpfBusca.replace(/\D/g,'');
+    if (cpfLimpo.length!==11) return alert('CPF incompleto.');
     try {
-      const res = await axios.get(`http://localhost:8080/consultas/historico/${cpfBusca}`);
-      if (res.data.length === 0) alert("Nenhum prontuário encontrado.");
-      else setHistoricoPaciente(res.data);
-    } catch (err) {
-      alert("Erro ao buscar histórico.");
-    }
+      const res = await axios.get(`http://localhost:8080/consultas/historico/${cpfLimpo}`);
+      if (res.data.length===0) alert('Nenhum prontuário encontrado.');
+      else setHistorico(res.data);
+    } catch { alert('Erro ao buscar histórico.'); }
   };
 
-  const getCorPrioridade = (p: string) => {
-    if (p === 'U') return '#e74c3c'; 
-    if (p === 'P') return '#f39c12'; 
-    return '#646cff'; 
-  };
+  const maskCPF = (v: string) => v.replace(/\D/g,'').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})/,'$1-$2').replace(/(-\d{2})\d+?$/,'$1');
+  const cor = (p: string) => p==='U' ? 'var(--red)' : p==='P' ? 'var(--amber)' : 'var(--blue)';
 
-  if (!meuConsultorio) {
-    return (
-      <div style={{ maxWidth: '600px', width: '100%', margin: '60px auto', padding: '40px', backgroundColor: '#242424', borderRadius: '15px', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-        <h2 style={{ color: '#646cff', marginBottom: '30px' }}>👨‍⚕️ Bem-vindo, Doutor(a)!</h2>
-        <p style={{ fontSize: '18px', color: '#ccc', marginBottom: '20px' }}>Selecione sua sala de atendimento:</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'center' }}>
-          {['01', '02', '03', '04', '05'].map(num => (
-            <button key={num} onClick={() => setMeuConsultorio(num)} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Sala {num}</button>
-          ))}
-          <button onClick={() => setMeuConsultorio('Todos')} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: '#444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Ver Todos</button>
-        </div>
+  // Seleção de sala
+  if (!consultorio) return (
+    <div style={{ maxWidth: 520, margin: '0 auto' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Painel Médico</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Selecione sua sala de atendimento</p>
       </div>
-    );
-  }
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        {['01','02','03','04','05'].map(n => (
+          <button key={n} onClick={() => setConsultorio(n)} style={{
+            padding: '20px', borderRadius: 'var(--radius-lg)', cursor: 'pointer',
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            color: 'var(--text-primary)', fontSize: 15, fontWeight: 600,
+            transition: 'all var(--transition)',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.background='var(--accent-glow)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='var(--bg-surface)'; }}
+          >
+            Sala {n}
+          </button>
+        ))}
+        <button onClick={() => setConsultorio('Todos')} style={{
+          padding: '20px', borderRadius: 'var(--radius-lg)', cursor: 'pointer',
+          background: 'var(--bg-surface)', border: '1px solid var(--border)',
+          color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500,
+          transition: 'all var(--transition)',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor='var(--border-focus)'; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; }}
+        >Ver todas</button>
+      </div>
+    </div>
+  );
 
   return (
-    <div style={{ maxWidth: '850px', width: '100%', padding: '20px', color: 'white', textAlign: 'center' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ color: '#646cff', margin: 0 }}>👨‍⚕️ Fila: {meuConsultorio === 'Todos' ? 'Geral' : `Sala ${meuConsultorio}`}</h1>
-        <button onClick={() => setMeuConsultorio(null)} style={{ padding: '8px 15px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Trocar Sala</button>
-      </div>
+    <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
-      {/* Busca de Prontuário */}
-      <div style={{ backgroundColor: '#242424', padding: '15px', borderRadius: '8px', marginBottom: '30px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', border: '1px solid #444' }}>
-        <span style={{ fontWeight: 'bold' }}>🔎 Prontuário por CPF:</span>
-        <input value={cpfBusca} onChange={handleCpfChange} placeholder="000.000.000-00" style={{ padding: '10px', borderRadius: '5px', border: '1px solid #555', backgroundColor: '#333', color: 'white', width: '180px' }} />
-        <button onClick={buscarHistorico} style={{ padding: '10px 20px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Buscar</button>
-      </div>
-      
-      {/* Tabela de Fila */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #444', backgroundColor: '#1a1a1a' }}>
-        <thead>
-          <tr style={{ background: '#333', color: '#646cff' }}>
-            <th style={{ padding: '15px' }}>Senha</th>
-            <th>Paciente</th>
-            <th>Consultório</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {fila.map((c) => (
-            <tr key={c.id} style={{ borderBottom: '1px solid #444' }}>
-              <td style={{ fontSize: '26px', fontWeight: 'bold', padding: '20px', color: getCorPrioridade(c.prioridade) }}>{c.senha}</td>
-              <td style={{ textAlign: 'left', padding: '10px' }}>
-                <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{c.paciente?.nome}</span><br/>
-                <small style={{ color: '#aaa' }}>CPF: {c.paciente?.cpf}</small>
-              </td>
-              <td style={{ fontSize: '20px' }}>{c.consultorio}</td>
-              <td style={{ padding: '10px' }}>
-                <button onClick={() => chamarPacienteVoz(c.paciente.nome, c.consultorio, c.senha)} style={{ backgroundColor: '#646cff', color: 'white', border: 'none', padding: '10px 15px', marginRight: '10px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>📢 Chamar</button>
-                <button onClick={() => setConsultaFinalizando(c)} style={{ backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>✅ Finalizar</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {fila.length === 0 && <p style={{ marginTop: '40px', color: '#888', fontSize: '18px' }}>Nenhum paciente aguardando.</p>}
-
-      {/* MODAL: PRONTUÁRIO */}
-      {consultaFinalizando && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '12px', color: '#333', width: '500px', textAlign: 'left' }}>
-            <h2>📝 Prontuário: {consultaFinalizando.paciente?.nome}</h2>
-            <textarea rows={6} style={{ width: '100%', marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} value={observacoes} onChange={e => setObservacoes(e.target.value)} placeholder="Evolução médica..." />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '25px' }}>
-              <button onClick={() => setConsultaFinalizando(null)} style={{ padding: '10px 20px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={confirmarFinalizacao} style={{ padding: '10px 20px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Salvar e Concluir</button>
-            </div>
-          </div>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap: 12, marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>
+            {consultorio==='Todos' ? 'Fila Geral' : `Sala ${consultorio}`}
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+            {fila.length} paciente{fila.length!==1?'s':''} aguardando
+          </p>
         </div>
+        <button className="btn btn-ghost btn-sm" onClick={() => setConsultorio(null)} style={{ marginLeft: 'auto' }}>
+          Trocar sala
+        </button>
+      </div>
+
+      {/* Busca prontuário */}
+      <div className="card" style={{ padding: '14px 16px', marginBottom: 20, display:'flex', gap: 10, alignItems:'center' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace:'nowrap' }}>🔎 Prontuário por CPF</span>
+        <input className="input" value={cpfBusca} onChange={e => setCpfBusca(maskCPF(e.target.value))}
+          placeholder="000.000.000-00" style={{ flex: 1 }} />
+        <button className="btn btn-ghost btn-sm" onClick={buscarHistorico}>Buscar</button>
+      </div>
+
+      {/* Tabela de fila */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Senha</th>
+              <th>Paciente</th>
+              <th>Sala</th>
+              <th>Prioridade</th>
+              <th style={{ textAlign:'right' }}>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fila.length===0 ? (
+              <tr><td colSpan={5} style={{ textAlign:'center', padding: '40px', color: 'var(--text-muted)' }}>
+                Nenhum paciente aguardando
+              </td></tr>
+            ) : fila.map(c => (
+              <tr key={c.id}>
+                <td><span className={`senha-tag senha-${c.prioridade}`}>{c.senha}</span></td>
+                <td>
+                  <div style={{ fontWeight: 500, color: 'var(--text-primary)', fontSize: 13 }}>{c.paciente?.nome}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>CPF: {c.paciente?.cpf}</div>
+                </td>
+                <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{c.consultorio}</td>
+                <td><span className={`badge badge-${c.prioridade}`}>{c.prioridade==='U'?'Urgente':c.prioridade==='P'?'Preferencial':'Normal'}</span></td>
+                <td>
+                  <div style={{ display:'flex', gap: 6, justifyContent:'flex-end' }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => chamarVoz(c.paciente.nome, c.consultorio, c.senha)}>📢 Chamar</button>
+                    <button className="btn btn-success btn-sm" onClick={() => setFinalizando(c)}>✓ Finalizar</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal finalizar */}
+      {finalizando && (
+        <Modal onClose={() => setFinalizando(null)} title={`Prontuário — ${finalizando.paciente?.nome}`}>
+          <label className="label">Observações médicas</label>
+          <textarea value={obs} onChange={e => setObs(e.target.value)}
+            rows={6} placeholder="Evolução clínica, diagnóstico, prescrição..."
+            style={{ width:'100%', padding:'10px 12px', background:'var(--bg-input)', border:'1px solid var(--border)', borderRadius:'var(--radius-md)', color:'var(--text-primary)', fontSize:13, resize:'vertical', outline:'none', fontFamily:'var(--font-body)' }} />
+          <div style={{ display:'flex', gap: 8, marginTop: 16, justifyContent:'flex-end' }}>
+            <button className="btn btn-ghost" onClick={() => setFinalizando(null)}>Cancelar</button>
+            <button className="btn btn-primary" onClick={concluir}>Salvar e concluir</button>
+          </div>
+        </Modal>
       )}
 
-      {/* MODAL: HISTÓRICO */}
-      {historicoPaciente && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '12px', color: '#333', width: '650px', maxHeight: '80vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
-               <h3>🗂️ Histórico: {historicoPaciente[0]?.paciente?.nome}</h3>
-               <button onClick={() => setHistoricoPaciente(null)} style={{ border: 'none', background: 'none', fontSize: '20px', cursor: 'pointer' }}>❌</button>
-            </div>
-            {historicoPaciente.map((hist: any) => (
-              <div key={hist.id} style={{ margin: '15px 0', padding: '10px', background: '#f9f9f9', borderRadius: '8px', textAlign: 'left' }}>
-                <p><strong>Data:</strong> {new Date(hist.dataHora).toLocaleString()}</p>
-                <p><strong>Observação:</strong> {hist.observacoes || 'Sem registro.'}</p>
+      {/* Modal histórico */}
+      {historico && (
+        <Modal onClose={() => setHistorico(null)} title={`Histórico — ${historico[0]?.paciente?.nome}`}>
+          <div style={{ display:'flex', flexDirection:'column', gap: 10, maxHeight: 360, overflowY:'auto' }}>
+            {historico.map((h: any) => (
+              <div key={h.id} style={{ padding:'12px 14px', background:'var(--bg-elevated)', borderRadius:'var(--radius-md)', border:'1px solid var(--border)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{new Date(h.dataHora).toLocaleString()}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{h.observacoes || 'Sem observações registradas.'}</div>
               </div>
             ))}
           </div>
-        </div>
+        </Modal>
       )}
+    </div>
+  );
+}
+
+function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, backdropFilter:'blur(4px)' }}
+      onClick={e => e.target===e.currentTarget && onClose()}>
+      <div className="fade-up card" style={{ width:'100%', maxWidth:500, padding:'24px', maxHeight:'85vh', overflow:'auto' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
+          <h2 style={{ fontSize:16, fontWeight:600, color:'var(--text-primary)' }}>{title}</h2>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-muted)', cursor:'pointer', fontSize:18 }}>✕</button>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

@@ -4,57 +4,81 @@ import axios from 'axios';
 export function Historico() {
   const [historico, setHistorico] = useState<any[]>([]);
 
-  const buscarHistorico = async () => {
-    try {
-      const res = await axios.get('http://localhost:8080/consultas/historico');
-      setHistorico(res.data);
-    } catch (err) {
-      console.error("Erro ao buscar histórico");
-    }
-  };
+  useEffect(() => {
+    axios.get('http://localhost:8080/consultas/historico')
+      .then(res => setHistorico(res.data))
+      .catch(() => {});
+  }, []);
 
-  const calcularMetricas = () => {
-    if (historico.length === 0) return { media: 0, urgentes: 0, total: 0 };
-    let totalEspera = 0;
-    let urgentes = 0;
+  const metricas = () => {
+    if (!historico.length) return { media: 0, urgentes: 0, total: 0 };
+    let totalEspera = 0, urgentes = 0;
     historico.forEach(c => {
       const espera = (new Date(c.dataHoraConclusao).getTime() - new Date(c.dataHora).getTime()) / 60000;
       totalEspera += espera;
-      if (c.prioridade === 'U') urgentes++;
+      if (c.prioridade==='U') urgentes++;
     });
-    return { media: Math.round(totalEspera / historico.length), urgentes, total: historico.length };
+    return { media: Math.round(totalEspera/historico.length), urgentes, total: historico.length };
   };
 
-  const metricas = calcularMetricas();
-  useEffect(() => { buscarHistorico(); }, []);
+  const m = metricas();
+
+  const CARDS = [
+    { label: 'Total de atendimentos', value: m.total,        color: 'var(--accent)' },
+    { label: 'Atendimentos urgentes', value: m.urgentes,     color: 'var(--red)' },
+    { label: 'Tempo médio (min)',     value: `${m.media} min`, color: 'var(--green)' },
+  ];
 
   return (
-    <div style={{ maxWidth: '900px', width: '100%', color: 'white' }}>
-      <h1 style={{ textAlign: 'center', color: '#27ae60' }}>📊 Dashboard de Gestão</h1>
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
-        <div style={cardStyle}><small>Média Espera</small><h2>{metricas.media} min</h2></div>
-        <div style={{ ...cardStyle, borderLeft: '8px solid #e74c3c' }}><small>Urgentes</small><h2>{metricas.urgentes}</h2></div>
-        <div style={{ ...cardStyle, borderLeft: '8px solid #646cff' }}><small>Total</small><h2>{metricas.total}</h2></div>
+    <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Histórico</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Todos os atendimentos concluídos</p>
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#1a1a1a' }}>
-        <thead>
-          <tr style={{ background: '#333', color: '#27ae60' }}>
-            <th style={{ padding: '15px' }}>Senha</th>
-            <th>Paciente</th>
-            <th>Atendimento</th>
-          </tr>
-        </thead>
-        <tbody>
-          {historico.map((c) => (
-            <tr key={c.id} style={{ borderBottom: '1px solid #444' }}>
-              <td style={{ padding: '15px' }}>{c.senha}</td>
-              <td>{c.paciente?.nome}</td>
-              <td>{new Date(c.dataHora).toLocaleTimeString()} às {new Date(c.dataHoraConclusao).toLocaleTimeString()}</td>
+
+      {/* Métricas */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
+        {CARDS.map(c => (
+          <div key={c.label} className="card" style={{ padding: '18px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--text-muted)', marginBottom: 8 }}>
+              {c.label}
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 600, color: c.color, fontFamily:'var(--font-mono)' }}>
+              {c.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabela */}
+      <div className="card" style={{ padding: 0, overflow:'hidden' }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Senha</th>
+              <th>Paciente</th>
+              <th>Prioridade</th>
+              <th>Início</th>
+              <th>Conclusão</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {historico.length===0 ? (
+              <tr><td colSpan={5} style={{ textAlign:'center', padding:'40px', color:'var(--text-muted)' }}>
+                Nenhum atendimento concluído ainda
+              </td></tr>
+            ) : historico.map(c => (
+              <tr key={c.id}>
+                <td><span className={`senha-tag senha-${c.prioridade}`}>{c.senha}</span></td>
+                <td style={{ color:'var(--text-primary)', fontWeight:500 }}>{c.paciente?.nome}</td>
+                <td><span className={`badge badge-${c.prioridade}`}>{c.prioridade==='U'?'Urgente':c.prioridade==='P'?'Preferencial':'Normal'}</span></td>
+                <td>{new Date(c.dataHora).toLocaleTimeString()}</td>
+                <td>{c.dataHoraConclusao ? new Date(c.dataHoraConclusao).toLocaleTimeString() : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
-const cardStyle = { flex: 1, backgroundColor: '#242424', padding: '20px', borderRadius: '10px', borderLeft: '8px solid #27ae60', textAlign: 'center' as const };
