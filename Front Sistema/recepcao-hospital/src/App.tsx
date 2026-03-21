@@ -128,8 +128,10 @@ export default function App() {
         flex: 1, overflow: 'auto',
         padding: '28px 32px',
         background: 'var(--bg-base)',
+        display: 'flex',
+        justifyContent: 'center',
       }}>
-        <div className="fade-up" key={tela}>
+        <div className="fade-up" key={tela} style={{ width: '100%' }}>
           {tela === 'recepcao'  && <Recepcao />}
           {tela === 'medico'    && <PainelMedico />}
           {tela === 'historico' && <Historico />}

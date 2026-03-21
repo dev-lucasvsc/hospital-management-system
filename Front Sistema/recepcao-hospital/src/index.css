@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
+body {
+  background: red !important;
+}
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -16,7 +18,7 @@
   --accent-dim:   #3730a3;
   --accent-glow:  rgba(79,70,229,0.18);
 
-  --text-primary:   #f0f0f3;
+  --text-primary:   #ffffff;
   --text-secondary: #8b8b9e;
   --text-muted:     #4a4a5a;
 
@@ -66,7 +68,7 @@ input, select, textarea, button { font-family: var(--font-body); }
   white-space: nowrap;
 }
 .btn-primary {
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: #ffffff;
   border-color: var(--accent);
 }
 .btn-primary:hover { background: #5b52f0; border-color: #5b52f0; }
