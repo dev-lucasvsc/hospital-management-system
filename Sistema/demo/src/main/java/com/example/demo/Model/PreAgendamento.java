@@ -5,6 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "pre_agendamento")
 @Data
 public class PreAgendamento {
 
@@ -13,18 +14,19 @@ public class PreAgendamento {
     private Long id;
 
     private String nome;
+
     private String cpf;
+
     private String dataNascimento;
 
-    // Identificador do WhatsApp (número de telefone)
+    // Número de telefone (identificador do WhatsApp)
     private String telefone;
 
-    // Campo para armazenar os sintomas relatados na triagem
     @Column(columnDefinition = "TEXT")
     private String sintomas;
 
-    // Estados: PENDENTE, AGUARDANDO_NOME, AGUARDANDO_CPF, AGUARDANDO_SINTOMAS, CONCLUIDO
-    private String status = "PENDENTE";
+    @Enumerated(EnumType.STRING)
+    private StatusPreAgendamento status = StatusPreAgendamento.PENDENTE;
 
     private LocalDateTime dataSolicitacao;
 

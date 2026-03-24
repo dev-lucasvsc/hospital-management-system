@@ -1,4 +1,6 @@
 package com.example.demo.Model;
 
-public class StatusConsulta {
+public enum StatusConsulta {
+    AGUARDANDO,
+    CONCLUIDO
 }

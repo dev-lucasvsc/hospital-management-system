@@ -12,14 +12,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        // Habilita um "canal de rádio" chamado /topic para o React escutar
         config.enableSimpleBroker("/topic");
         config.setApplicationDestinationPrefixes("/app");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Ponto de conexão onde o React vai se plugar (com permissão de CORS)
-        registry.addEndpoint("/ws-hospital").setAllowedOriginPatterns("*").withSockJS();
+        registry.addEndpoint("/ws-hospital")
+                .setAllowedOriginPatterns("*") // TODO: restringir para origem do frontend em produção
+                .withSockJS();
     }
 }
