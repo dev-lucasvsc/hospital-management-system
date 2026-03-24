@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # 1. Banco de Dados
+  db:
+    image: postgres:15-alpine
+    container_name: hospital-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password  # Altere para a senha que está no seu application.properties
+      POSTGRES_DB: hospital_db     # Altere para o nome do banco no seu application.properties
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. Backend (Spring Boot)
+  backend:
+    build:
+      context: ./Sistema/demo
+      dockerfile: Dockerfile
+    container_name: hospital-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      # Sobrescreve as variáveis do application.properties para conectar no container do banco
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/hospital_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+
+  # 3. Frontend (React/Vite)
+  frontend:
+    build:
+      context: "./Front Sistema/recepcao-hospital"
+      dockerfile: Dockerfile
+    container_name: hospital-frontend
+    restart: always
+    ports:
+      - "80:80"   # Acesse o front no navegador em http://localhost
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
