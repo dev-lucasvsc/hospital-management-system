@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 
 const C = {
   bg:'#0d0d0f',surface:'#131316',elevated:'#1a1a1f',hover:'#202028',input:'#18181d',
-  border:'#2a2a35',focus:'#4f46e5',accent:'#4f46e5',accentBg:'rgba(79,70,229,0.1)',
-  text:'#f0f0f3',muted:'#8b8b9e',dim:'#4a4a5a',green:'#22c55e',
-  greenBg:'rgba(34,197,94,0.08)',greenBorder:'rgba(34,197,94,0.2)',
+  border:'#2a2a35',focus:'#4f46e5',accent:'#4f46e5',
+  text:'#f0f0f3',muted:'#8b8b9e',dim:'#4a4a5a',
+  green:'#22c55e',greenBg:'rgba(34,197,94,0.08)',greenBorder:'rgba(34,197,94,0.2)',
   amber:'#f59e0b',red:'#ef4444',blue:'#3b82f6',
 };
 const inp:React.CSSProperties={width:'100%',padding:'9px 12px',background:C.input,color:C.text,border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,outline:'none',fontFamily:"'DM Sans',sans-serif"};
@@ -14,7 +14,7 @@ const btnG:React.CSSProperties={display:'inline-flex',alignItems:'center',gap:4,
 const btnP:React.CSSProperties={display:'flex',alignItems:'center',justifyContent:'center',padding:'11px 24px',borderRadius:10,background:C.accent,color:'#fff',border:'none',cursor:'pointer',fontSize:14,fontWeight:600,fontFamily:"'DM Sans',sans-serif",width:'100%'};
 
 function Sec({title,children}:{title:string;children:React.ReactNode}){
-  return <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:'18px 20px',marginBottom:0}}>
+  return <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:'18px 20px'}}>
     <div style={{fontSize:11,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',color:C.dim,marginBottom:14}}>{title}</div>
     {children}
   </div>;
@@ -51,14 +51,14 @@ export function Recepcao(){
 
   useEffect(()=>{
     const c=fd.cpf.replace(/\D/g,'');
-    if(c.length===11)axios.get(`http://localhost:8080/consultas/whatsapp/pre-agendamento/${c}`).then(r=>setPre(r.data)).catch(()=>setPre(null));
+    if(c.length===11)api.get(`/consultas/whatsapp/pre-agendamento/${c}`).then(r=>setPre(r.data)).catch(()=>setPre(null));
     else setPre(null);
   },[fd.cpf]);
 
-  const buscarCep=async()=>{const c=fd.cep.replace(/\D/g,'');if(c.length!==8)return;try{const r=await axios.get(`https://viacep.com.br/ws/${c}/json/`);if(!r.data.erro)setFd(p=>({...p,rua:r.data.logradouro,bairro:r.data.bairro,cidade:r.data.localidade,uf:r.data.uf}));}catch{}};
-  const buscarPac=async()=>{const c=fd.cpf.replace(/\D/g,'');if(c.length!==11)return;try{const r=await axios.get(`http://localhost:8080/consultas/historico/${c}`);if(r.data.length>0){const p=r.data[0].paciente;setFd(v=>({...v,nome:p.nome||v.nome,dataNascimento:p.dataNascimento||v.dataNascimento,numeroSus:p.numeroSus||v.numeroSus,telefone:p.telefone||v.telefone,nomeMae:p.nomeMae||v.nomeMae,nomePai:p.nomePai||v.nomePai,peso:p.peso||v.peso,altura:p.altura||v.altura,cep:p.cep||v.cep,rua:p.rua||v.rua,bairro:p.bairro||v.bairro,cidade:p.cidade||v.cidade,uf:p.uf||v.uf}));}}catch{}};
+  const buscarCep=async()=>{const c=fd.cep.replace(/\D/g,'');if(c.length!==8)return;try{const r=await api.get(`https://viacep.com.br/ws/${c}/json/`);if(!r.data.erro)setFd(p=>({...p,rua:r.data.logradouro,bairro:r.data.bairro,cidade:r.data.localidade,uf:r.data.uf}));}catch{}};
+  const buscarPac=async()=>{const c=fd.cpf.replace(/\D/g,'');if(c.length!==11)return;try{const r=await api.get(`/consultas/historico/${c}`);if(r.data.length>0){const p=r.data[0].paciente;setFd(v=>({...v,nome:p.nome||v.nome,dataNascimento:p.dataNascimento||v.dataNascimento,numeroSus:p.numeroSus||v.numeroSus,telefone:p.telefone||v.telefone,nomeMae:p.nomeMae||v.nomeMae,nomePai:p.nomePai||v.nomePai,peso:p.peso||v.peso,altura:p.altura||v.altura,cep:p.cep||v.cep,rua:p.rua||v.rua,bairro:p.bairro||v.bairro,cidade:p.cidade||v.cidade,uf:p.uf||v.uf}));}}catch{}};
   const valConv=()=>{if(!fd.numeroConvenio)return;setSc('validando');setTimeout(()=>setSc(fd.numeroConvenio.length>=8?'aprovado':'negado'),1500);};
-  const agendar=async()=>{const c=fd.cpf.replace(/\D/g,'');if(!fd.nome||c.length!==11)return alert('Nome e CPF são obrigatórios.');setLoad(true);try{const r=await axios.post('http://localhost:8080/consultas/agendar',{prioridade:fd.prioridade,paciente:{...fd,cpf:c}});setCg(r.data);if(pre)await axios.put(`http://localhost:8080/consultas/whatsapp/pre-agendamento/${c}/concluir`);setFd({nome:'',dataNascimento:'',genero:'',cpf:'',numeroSus:'',possuiConvenio:false,numeroConvenio:'',prioridade:'S',cep:'',rua:'',bairro:'',cidade:'',uf:'',telefone:'',nomeMae:'',nomePai:'',peso:'',altura:''});}catch{alert('Erro.');}finally{setLoad(false);}};
+  const agendar=async()=>{const c=fd.cpf.replace(/\D/g,'');if(!fd.nome||c.length!==11)return alert('Nome e CPF são obrigatórios.');setLoad(true);try{const r=await api.post('/consultas/agendar',{prioridade:fd.prioridade,paciente:{...fd,cpf:c}});setCg(r.data);if(pre)await api.put(`/consultas/whatsapp/pre-agendamento/${c}/concluir`);setFd({nome:'',dataNascimento:'',genero:'',cpf:'',numeroSus:'',possuiConvenio:false,numeroConvenio:'',prioridade:'S',cep:'',rua:'',bairro:'',cidade:'',uf:'',telefone:'',nomeMae:'',nomePai:'',peso:'',altura:''});}catch{alert('Erro ao cadastrar.');}finally{setLoad(false);}};
 
   const prios=[
     {v:'S',label:'Normal',desc:'Atendimento padrão',color:C.blue,bg:'rgba(59,130,246,0.08)',bo:'rgba(59,130,246,0.3)'},
