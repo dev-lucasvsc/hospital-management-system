@@ -13,12 +13,21 @@ public class Consulta {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * CONCORRÊNCIA — Optimistic Locking
+     * O Hibernate incrementa este campo a cada UPDATE.
+     * Se dois requests tentarem atualizar o mesmo registro simultaneamente,
+     * o segundo recebe OptimisticLockException → controller retorna HTTP 409.
+     */
+    @Version
+    private Long version;
+
     private String consultorio;
     private String senha;
     private LocalDateTime dataHora;
     private LocalDateTime dataHoraConclusao;
 
-    // S, P ou U
+    // S = Standard, P = Prioritário, U = Urgente
     private String prioridade;
 
     @Enumerated(EnumType.STRING)

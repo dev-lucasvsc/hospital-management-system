@@ -8,14 +8,22 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password  # Altere para a senha que está no seu application.properties
-      POSTGRES_DB: hospital_db     # Altere para o nome do banco no seu application.properties
+      POSTGRES_PASSWORD: 210805
+      POSTGRES_DB: hospital_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # 2. Backend (Spring Boot)
+  # 2. Redis — fila de mensagens para o worker
+  redis:
+    image: redis:7-alpine
+    container_name: hospital-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  # 3. Backend (Spring Boot)
   backend:
     build:
       context: ./Sistema/demo
@@ -26,14 +34,15 @@ services:
       - "8080:8080"
     depends_on:
       - db
+      - redis
     environment:
-      # Sobrescreve as variáveis do application.properties para conectar no container do banco
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/hospital_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_DATASOURCE_PASSWORD=210805
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - REDIS_HOST=redis
 
-  # 3. Frontend (React/Vite)
+  # 4. Frontend (React/Vite)
   frontend:
     build:
       context: "./Front Sistema/recepcao-hospital"
@@ -41,7 +50,7 @@ services:
     container_name: hospital-frontend
     restart: always
     ports:
-      - "80:80"   # Acesse o front no navegador em http://localhost
+      - "80:80"
     depends_on:
       - backend
 

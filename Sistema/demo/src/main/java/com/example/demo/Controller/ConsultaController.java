@@ -7,6 +7,7 @@ import com.example.demo.Repository.PreAgendamentoRepository;
 import com.example.demo.Service.ConsultaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,12 +50,27 @@ public class ConsultaController {
         return ResponseEntity.ok(consultaService.buscarHistoricoPorCpf(cpf));
     }
 
+    /**
+     * CONCORRÊNCIA — Optimistic Locking
+     * Se dois médicos tentarem concluir o mesmo atendimento simultaneamente,
+     * o segundo recebe HTTP 409 Conflict (conflito real, detectável nos logs).
+     */
     @PutMapping("/{id}/concluir")
     public ResponseEntity<Void> concluirAtendimento(
             @PathVariable Long id,
             @RequestBody(required = false) String observacoes) {
-        consultaService.concluirAtendimento(id, observacoes);
-        return ResponseEntity.noContent().build();
+        try {
+            consultaService.concluirAtendimento(id, observacoes);
+            System.out.printf("[CONTROLLER] thread=%s concluiu consulta id=%d%n",
+                    Thread.currentThread().getName(), id);
+            return ResponseEntity.noContent().build(); // 204 — sucesso
+
+        } catch (ObjectOptimisticLockingFailureException e) {
+            // Conflito real de concorrência detectado pelo Hibernate
+            System.out.printf("[CONTROLLER] CONFLITO DETECTADO thread=%s consulta id=%d — retornando 409%n",
+                    Thread.currentThread().getName(), id);
+            return ResponseEntity.status(409).build(); // 409 Conflict
+        }
     }
 
     @GetMapping("/whatsapp/pre-agendamento/{cpf}")

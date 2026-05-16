@@ -9,15 +9,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Date;
 
-/**
- * Utilitário JWT — gera e valida tokens de autenticação.
- *
- * O token carrega: matricula (subject), nome e cargo do funcionário.
- * Validade: 8 horas (jornada de trabalho padrão).
- *
- * A chave secreta é lida da variável de ambiente JWT_SECRET.
- * Em desenvolvimento, usa o valor padrão definido no application.properties.
- */
 @Component
 public class JwtUtil {
 

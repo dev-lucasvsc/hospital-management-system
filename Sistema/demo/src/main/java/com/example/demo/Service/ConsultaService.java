@@ -6,7 +6,7 @@ import com.example.demo.Model.StatusConsulta;
 import com.example.demo.Repository.ConsultaRepository;
 import com.example.demo.Repository.PacienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,18 +17,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
- * COMPUTAÇÃO PARALELA — dois mecanismos implementados:
- *
+ * COMPUTAÇÃO PARALELA — três mecanismos implementados:
  * 1. AtomicInteger: senhas geradas de forma thread-safe sem synchronized.
  * 2. LogService @Async: logs persistidos em thread separada do pool,
- *    sem bloquear a resposta da API. Mantém RNF < 2s mesmo em pico.
+ *    sem bloquear a resposta da API.
+ * 3. Redis Queue: eventos de atualização de fila são publicados no Redis
+ *    e consumidos pelo NotificacaoWorker em thread independente (paralelismo real).
  */
 @Service
 public class ConsultaService {
 
     @Autowired private ConsultaRepository consultaRepository;
     @Autowired private PacienteRepository pacienteRepository;
-    @Autowired private SimpMessagingTemplate messagingTemplate;
+    @Autowired private StringRedisTemplate redisTemplate;
     @Autowired private LogService logService;
 
     private final AtomicInteger contS = new AtomicInteger(1);
@@ -63,14 +64,22 @@ public class ConsultaService {
 
         Consulta salva = consultaRepository.save(consulta);
 
-        // Log assíncrono — thread separada, não bloqueia resposta
+        // Log assíncrono — thread separada, não bloqueia a resposta
         logService.registrarLog("AGENDAMENTO",
                 String.format("Senha %s gerada para %s → consultório %s",
                         salva.getSenha(),
                         salva.getPaciente() != null ? salva.getPaciente().getNome() : "desconhecido",
                         salva.getConsultorio()));
 
-        messagingTemplate.convertAndSend("/topic/fila", "ATUALIZAR_FILA");
+        // PARALELISMO — publica evento na fila Redis.
+        // O NotificacaoWorker consome em thread separada e notifica os painéis via WebSocket.
+        // A requisição retorna imediatamente, sem esperar o WebSocket.
+        redisTemplate.opsForList().leftPush("fila:notificacoes",
+                "ATUALIZAR_FILA:" + salva.getSenha());
+
+        System.out.printf("[SERVICE] thread=%s senha=%s publicada na fila Redis%n",
+                Thread.currentThread().getName(), salva.getSenha());
+
         return salva;
     }
 
@@ -133,13 +142,13 @@ public class ConsultaService {
         c.setDataHoraConclusao(LocalDateTime.now());
         if (observacoes != null && !observacoes.isBlank()) c.setObservacoes(observacoes);
 
-        consultaRepository.save(c);
+        consultaRepository.save(c); // Lança OptimisticLockException se houver conflito
 
         logService.registrarLog("CONCLUSAO",
                 String.format("Atendimento %d concluído. Paciente: %s",
                         id,
                         c.getPaciente() != null ? c.getPaciente().getNome() : "desconhecido"));
 
-        messagingTemplate.convertAndSend("/topic/fila", "ATUALIZAR_FILA");
+        redisTemplate.opsForList().leftPush("fila:notificacoes", "ATUALIZAR_FILA:CONCLUSAO");
     }
 }
