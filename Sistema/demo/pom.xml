@@ -106,6 +106,16 @@
 			<optional>true</optional>
 		</dependency>
 
+		<!-- Flyway — migrations de banco versionadas -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+
 		<!-- Testes (JUnit 5 + Mockito) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
