@@ -16,6 +16,14 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+/**
+ * COMPUTAÇÃO PARALELA — três mecanismos implementados:
+ * 1. AtomicInteger: senhas geradas de forma thread-safe sem synchronized.
+ * 2. LogService @Async: logs persistidos em thread separada do pool,
+ *    sem bloquear a resposta da API.
+ * 3. Redis Queue: eventos de atualização de fila são publicados no Redis
+ *    e consumidos pelo NotificacaoWorker em thread independente (paralelismo real).
+ */
 @Service
 public class ConsultaService {
 
@@ -28,6 +36,8 @@ public class ConsultaService {
     private final AtomicInteger contP = new AtomicInteger(1);
     private final AtomicInteger contU = new AtomicInteger(1);
 
+    private final List<String> consultorios = List.of("01", "02", "03", "04", "05");
+
     @Transactional
     public Consulta realizarAgendamento(Consulta consulta) {
         if (consulta.getPaciente() != null && consulta.getPaciente().getCpf() != null) {
@@ -39,8 +49,7 @@ public class ConsultaService {
             }
         }
 
-        // Consultório não definido no agendamento — atribuído só na chamada
-        consulta.setConsultorio(null);
+        consulta.setConsultorio(menorFila());
 
         String prefixo = consulta.getPrioridade();
         int numero = switch (prefixo) {
@@ -55,62 +64,43 @@ public class ConsultaService {
 
         Consulta salva = consultaRepository.save(consulta);
 
+        // Log assíncrono — thread separada, não bloqueia a resposta
         logService.registrarLog("AGENDAMENTO",
-                String.format("Senha %s gerada para %s — aguardando na fila global",
+                String.format("Senha %s gerada para %s → consultório %s",
                         salva.getSenha(),
-                        salva.getPaciente() != null ? salva.getPaciente().getNome() : "desconhecido"));
+                        salva.getPaciente() != null ? salva.getPaciente().getNome() : "desconhecido",
+                        salva.getConsultorio()));
 
-        redisTemplate.opsForList().leftPush("fila:notificacoes", "ATUALIZAR_FILA:" + salva.getSenha());
+        // PARALELISMO — publica evento na fila Redis.
+        // O NotificacaoWorker consome em thread separada e notifica os painéis via WebSocket.
+        // A requisição retorna imediatamente, sem esperar o WebSocket.
+        redisTemplate.opsForList().leftPush("fila:notificacoes",
+                "ATUALIZAR_FILA:" + salva.getSenha());
+
         System.out.printf("[SERVICE] thread=%s senha=%s publicada na fila Redis%n",
                 Thread.currentThread().getName(), salva.getSenha());
 
         return salva;
     }
 
-    /**
-     * Médico chama o próximo da fila global.
-     * O consultório é atribuído aqui — não no agendamento.
-     */
-    @Transactional
-    public Consulta chamarProximo(String consultorio) {
-        List<Consulta> fila = buscarFilaGlobal();
-        if (fila.isEmpty()) throw new RuntimeException("FILA_VAZIA");
-
-        Consulta proximo = fila.get(0);
-        proximo.setConsultorio(consultorio);
-        proximo.setStatus(StatusConsulta.EM_ATENDIMENTO);
-
-        Consulta salvo = consultaRepository.save(proximo);
-
-        logService.registrarLog("CHAMADA",
-                String.format("Senha %s chamada para consultório %s — %s",
-                        salvo.getSenha(), consultorio,
-                        salvo.getPaciente() != null ? salvo.getPaciente().getNome() : "desconhecido"));
-
-        redisTemplate.opsForList().leftPush("fila:notificacoes", "ATUALIZAR_FILA:CHAMADA");
-        System.out.printf("[SERVICE] thread=%s senha=%s direcionada para consultório %s%n",
-                Thread.currentThread().getName(), salvo.getSenha(), consultorio);
-
-        return salvo;
+    private String menorFila() {
+        String melhor = consultorios.get(0);
+        long menor = Long.MAX_VALUE;
+        for (String c : consultorios) {
+            long total = consultaRepository.countByConsultorioAndStatus(c, StatusConsulta.AGUARDANDO);
+            if (total < menor) { menor = total; melhor = c; }
+        }
+        return melhor;
     }
 
-    public List<Consulta> buscarFilaGlobal() {
-        return consultaRepository.findByStatusOrderByIdAsc(StatusConsulta.AGUARDANDO)
-                .stream().sorted((a, b) -> {
-                    int pa = peso(a.getPrioridade()), pb = peso(b.getPrioridade());
-                    if (pa != pb) return Integer.compare(pb, pa);
-                    return a.getDataHora().compareTo(b.getDataHora());
-                }).collect(Collectors.toList());
-    }
-
-    public Optional<Consulta> buscarEmAtendimento(String consultorio) {
-        return consultaRepository
-                .findByConsultorioAndStatus(consultorio, StatusConsulta.EM_ATENDIMENTO)
-                .stream().findFirst();
-    }
-
-    public List<Consulta> buscarTodosEmAtendimento() {
-        return consultaRepository.findByStatusOrderByIdDesc(StatusConsulta.EM_ATENDIMENTO);
+    private void atualizarPaciente(Paciente d, Paciente o) {
+        d.setNome(o.getNome()); d.setDataNascimento(o.getDataNascimento());
+        d.setNumeroSus(o.getNumeroSus()); d.setPossuiConvenio(o.isPossuiConvenio());
+        d.setNumeroConvenio(o.getNumeroConvenio()); d.setGenero(o.getGenero());
+        d.setCep(o.getCep()); d.setRua(o.getRua()); d.setBairro(o.getBairro());
+        d.setCidade(o.getCidade()); d.setUf(o.getUf()); d.setTelefone(o.getTelefone());
+        d.setNomeMae(o.getNomeMae()); d.setNomePai(o.getNomePai());
+        d.setPeso(o.getPeso()); d.setAltura(o.getAltura());
     }
 
     public List<Consulta> buscarFila() {
@@ -152,22 +142,13 @@ public class ConsultaService {
         c.setDataHoraConclusao(LocalDateTime.now());
         if (observacoes != null && !observacoes.isBlank()) c.setObservacoes(observacoes);
 
-        consultaRepository.save(c);
+        consultaRepository.save(c); // Lança OptimisticLockException se houver conflito
 
         logService.registrarLog("CONCLUSAO",
                 String.format("Atendimento %d concluído. Paciente: %s",
-                        id, c.getPaciente() != null ? c.getPaciente().getNome() : "desconhecido"));
+                        id,
+                        c.getPaciente() != null ? c.getPaciente().getNome() : "desconhecido"));
 
         redisTemplate.opsForList().leftPush("fila:notificacoes", "ATUALIZAR_FILA:CONCLUSAO");
-    }
-
-    private void atualizarPaciente(Paciente d, Paciente o) {
-        d.setNome(o.getNome()); d.setDataNascimento(o.getDataNascimento());
-        d.setNumeroSus(o.getNumeroSus()); d.setPossuiConvenio(o.isPossuiConvenio());
-        d.setNumeroConvenio(o.getNumeroConvenio()); d.setGenero(o.getGenero());
-        d.setCep(o.getCep()); d.setRua(o.getRua()); d.setBairro(o.getBairro());
-        d.setCidade(o.getCidade()); d.setUf(o.getUf()); d.setTelefone(o.getTelefone());
-        d.setNomeMae(o.getNomeMae()); d.setNomePai(o.getNomePai());
-        d.setPeso(o.getPeso()); d.setAltura(o.getAltura());
     }
 }
