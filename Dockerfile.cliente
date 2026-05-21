@@ -1,0 +1,5 @@
+FROM python:3.11-alpine
+RUN pip install requests --no-cache-dir
+WORKDIR /app
+COPY cliente.py .
+CMD ["python", "cliente.py"]

@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: 210805
       POSTGRES_DB: hospital_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -53,6 +53,20 @@ services:
       - "80:80"
     depends_on:
       - backend
+
+  # 5. Container cliente — simula usuário real com IP próprio
+  # Escalar com: docker-compose up --scale cliente=20
+  cliente:
+    build:
+      context: .
+      dockerfile: Dockerfile.cliente
+    profiles:
+      - test
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:8080
+    restart: "no"
 
 volumes:
   postgres_data:
