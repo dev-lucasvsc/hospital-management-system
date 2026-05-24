@@ -5,7 +5,6 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   define: {
-    // ✨ Resolve o erro "global is not defined" transformando 'global' em 'window'
     global: 'window',
   },
 })

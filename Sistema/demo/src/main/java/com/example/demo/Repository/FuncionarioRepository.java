@@ -9,6 +9,5 @@ import java.util.Optional;
 public interface FuncionarioRepository extends JpaRepository<Funcionario, Long> {
 
     // Valida login cruzando matrícula (ID) com senha no banco
-    // DÍVIDA TÉCNICA: senha em texto puro — migrar para BCrypt
     Optional<Funcionario> findByIdAndSenha(Long id, String senha);
 }

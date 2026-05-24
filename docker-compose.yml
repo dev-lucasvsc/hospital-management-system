@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # 1. Banco de Dados
   db:
     image: postgres:15-alpine
     container_name: hospital-db
@@ -15,7 +14,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # 2. Redis — fila de mensagens para o worker
   redis:
     image: redis:7-alpine
     container_name: hospital-redis
@@ -23,7 +21,6 @@ services:
     ports:
       - "6379:6379"
 
-  # 3. Backend (Spring Boot)
   backend:
     build:
       context: ./Sistema/demo
@@ -42,7 +39,6 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - REDIS_HOST=redis
 
-  # 4. Frontend (React/Vite)
   frontend:
     build:
       context: "./Front Sistema/recepcao-hospital"
@@ -54,8 +50,9 @@ services:
     depends_on:
       - backend
 
-  # 5. Container cliente — simula usuário real com IP próprio
-  # Escalar com: docker-compose up --scale cliente=20
+  # Container cliente — simulação de usuário real com IP próprio
+  # Usar via rodar-testes.ps1 ou:
+  # docker-compose --profile test up --scale cliente=20
   cliente:
     build:
       context: .
@@ -66,6 +63,28 @@ services:
       - backend
     environment:
       - BACKEND_URL=http://backend:8080
+      - MODO=continuo
+      - CICLOS=10
+      - INTERVALO=1
+    volumes:
+      - ./logs:/logs
+    restart: "no"
+
+  # Container benchmark — mede velocidade por tipo de requisição
+  # docker-compose --profile benchmark run --rm benchmark
+  benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile.cliente
+    profiles:
+      - benchmark
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:8080
+      - MODO=benchmark
+    volumes:
+      - ./logs:/logs
     restart: "no"
 
 volumes:

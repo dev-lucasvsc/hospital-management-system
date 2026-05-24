@@ -7,21 +7,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-/**
- * PARALELISMO — Worker de notificações desacoplado.
- *
- * Responsabilidade separada do ConsultaService:
- * - Consome a fila Redis ("fila:notificacoes") a cada 1 segundo
- * - Roda em thread do pool (@Async) independente da requisição principal
- * - Notifica os painéis via WebSocket sem bloquear o fluxo de agendamento
- *
- * Fluxo:
- *   POST /agendar → ConsultaService → Redis (leftPush) → retorna resposta imediata
- *                                          ↓
- *                              NotificacaoWorker (thread separada)
- *                                          ↓
- *                              WebSocket /topic/fila → painéis atualizam
- */
 @Service
 public class NotificacaoWorker {
 
